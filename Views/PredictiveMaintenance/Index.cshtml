@@ -298,6 +298,109 @@
             </div>
         </div>
     </div>
+
+    <!-- Timetable Management Integration -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow border-left-info">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-info">📅 Semester Timetable Management</h6>
+                    @if (ViewBag.HasActiveSemester)
+                    {
+                        <span class="badge badge-success">Active Semester</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-warning">No Active Semester</span>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.HasActiveSemester && ViewBag.CurrentSemester != null)
+                    {
+                        var currentSemester = ViewBag.CurrentSemester as FEENALOoFINALE.Models.Semester;
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-1">@currentSemester.SemesterName</h5>
+                                <p class="text-muted mb-2">
+                                    @currentSemester.StartDate.ToString("MMM dd, yyyy") - @currentSemester.EndDate.ToString("MMM dd, yyyy")
+                                    <span class="badge badge-info ms-2">Week @currentSemester.CurrentWeek of @currentSemester.NumberOfWeeks</span>
+                                </p>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: @currentSemester.ProgressPercentage%"></div>
+                                </div>
+                                <small class="text-muted">@currentSemester.ProgressPercentage.ToString("F1")% complete</small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <a href="@Url.Action("Progress", "Timetable", new { id = currentSemester.SemesterId })" class="btn btn-info">
+                                        <i class="bi bi-graph-up"></i> View Progress
+                                    </a>
+                                    <a href="@Url.Action("Index", "Timetable")" class="btn btn-primary">
+                                        <i class="bi bi-calendar-week"></i> Manage Timetables
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-1">No Active Semester</h5>
+                                <p class="text-muted mb-0">
+                                    Upload a semester timetable to enable equipment usage tracking and enhanced predictive maintenance analytics. 
+                                    The timetable system provides comprehensive semester management with automatic progress tracking and completion detection.
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <a href="@Url.Action("Upload", "Timetable")" class="btn btn-success">
+                                        <i class="bi bi-upload"></i> Upload Semester Timetable
+                                    </a>
+                                    <a href="@Url.Action("Index", "Timetable")" class="btn btn-outline-primary">
+                                        <i class="bi bi-calendar-week"></i> Timetable Management
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    
+                    <hr class="mt-3 mb-3">
+                    
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="text-info">
+                                <i class="bi bi-calendar-check display-6"></i>
+                                <h6 class="mt-2">Semester Tracking</h6>
+                                <small class="text-muted">Track equipment usage across academic semesters</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-success">
+                                <i class="bi bi-graph-up-arrow display-6"></i>
+                                <h6 class="mt-2">Usage Analytics</h6>
+                                <small class="text-muted">Analyze equipment utilization patterns</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-warning">
+                                <i class="bi bi-exclamation-triangle display-6"></i>
+                                <h6 class="mt-2">Predictive Insights</h6>
+                                <small class="text-muted">Enhanced predictions based on usage data</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-primary">
+                                <i class="bi bi-wrench display-6"></i>
+                                <h6 class="mt-2">Smart Maintenance</h6>
+                                <small class="text-muted">Optimize maintenance schedules</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -359,9 +462,20 @@
         }
 
         function loadPlanning() {
-            // This would load planning data - placeholder for now
-            document.getElementById('planningData').innerHTML = 
-                '<div class="alert alert-info">Maintenance planning feature coming soon!</div>';
+            fetch('/PredictiveMaintenance/GetMaintenancePlanning')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayMaintenancePlanning(data.data);
+                    } else {
+                        document.getElementById('planningData').innerHTML = 
+                            '<div class="alert alert-danger">Error loading maintenance planning: ' + data.error + '</div>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('planningData').innerHTML = 
+                        '<div class="alert alert-danger">Network error loading maintenance planning</div>';
+                });
         }
 
         function displayRiskAssessment(riskData) {
@@ -419,7 +533,7 @@
             if (confirm('Generate automatic maintenance schedule based on predictions?')) {
                 fetch('/PredictiveMaintenance/GenerateAutomaticSchedule', { method: 'POST' })
                     .then(response => response.json())
-                    .then(data => {
+                    .then data => {
                         if (data.success) {
                             alert(`Success! Generated ${data.tasksCreated} maintenance tasks.`);
                             location.reload();
@@ -439,6 +553,61 @@
         function viewDetails(equipmentId) {
             // Redirect to equipment details
             window.location.href = `/Equipment/Details/${equipmentId}`;
+        }
+
+        function displayMaintenancePlanning(planningData) {
+            let html = '<div class="row">';
+            
+            // Add summary cards
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5>This Week</h5>
+                            <h3>${planningData.thisWeekTasks || 0}</h3>
+                            <p class="mb-0">Tasks Scheduled</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5>Next Week</h5>
+                            <h3>${planningData.nextWeekTasks || 0}</h3>
+                            <p class="mb-0">Tasks Planned</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add upcoming tasks table
+            if (planningData.upcomingTasks && planningData.upcomingTasks.length > 0) {
+                html += '<div class="col-12"><div class="table-responsive"><table class="table table-bordered"><thead><tr>';
+                html += '<th>Equipment</th><th>Type</th><th>Scheduled Date</th><th>Priority</th><th>Estimated Duration</th><th>Actions</th>';
+                html += '</tr></thead><tbody>';
+                
+                planningData.upcomingTasks.forEach(task => {
+                    const date = new Date(task.scheduledDate).toLocaleDateString();
+                    const priorityColor = task.priority === 'High' ? 'danger' : task.priority === 'Medium' ? 'warning' : 'success';
+                    html += `<tr>
+                        <td>${task.equipmentName}</td>
+                        <td>${task.maintenanceType}</td>
+                        <td>${date}</td>
+                        <td><span class="badge bg-${priorityColor}">${task.priority}</span></td>
+                        <td>${task.estimatedDuration || 'TBD'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewDetails(${task.equipmentId})">Details</button>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+            } else {
+                html += '<div class="col-12"><div class="alert alert-info">No upcoming maintenance tasks scheduled.</div></div>';
+            }
+            
+            html += '</div>';
+            document.getElementById('planningData').innerHTML = html;
         }
     </script>
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 
 namespace FEENALOoFINALE.Models
@@ -22,9 +22,9 @@ namespace FEENALOoFINALE.Models
         public string FullName => $"{FirstName} {LastName}";
 
         [Phone]
-        [Display(Name = "Contact Number")]
-        public string? ContactNumber { get; set; }
-        
+        [Display(Name = "Phone Number")]
+        public new string? PhoneNumber { get; set; }
+
         public DateTime LastLogin { get; set; }
         
         // Email verification properties

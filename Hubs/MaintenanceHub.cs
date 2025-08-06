@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
+using FEENALOoFINALE.Models.DTOs; // Add this line
+using FEENALOoFINALE.Models;
 
 namespace FEENALOoFINALE.Hubs
 {
@@ -46,32 +48,37 @@ namespace FEENALOoFINALE.Hubs
         /// <param name="message">Notification message</param>
         public async Task SendNotificationToGroup(string groupName, string type, string title, string message)
         {
+            if (string.IsNullOrWhiteSpace(groupName) || string.IsNullOrWhiteSpace(message))
+                return;
+
             await Clients.Group(groupName).SendAsync("ReceiveNotification", new
             {
-                Type = type,
-                Title = title,
+                Type = type ?? "info",
+                Title = title ?? "Notification",
                 Message = message,
-                Timestamp = DateTime.Now,
-                User = Context.User?.Identity?.Name
+                Timestamp = DateTime.UtcNow
             });
         }
 
         /// <summary>
-        /// Update dashboard metrics in real-time
+        /// Send maintenance update to all clients
         /// </summary>
-        /// <param name="metrics">Dashboard metrics object</param>
-        public async Task UpdateDashboardMetrics(object metrics)
+        /// <param name="updateType">Type of update (created, updated, completed)</param>
+        /// <param name="maintenanceId">Maintenance task ID</param>
+        /// <param name="message">Update message</param>
+        public async Task SendMaintenanceUpdate(string updateType, int maintenanceId, string message)
         {
-            await Clients.Group("Dashboard").SendAsync("DashboardUpdate", metrics);
-        }
+            if (string.IsNullOrWhiteSpace(updateType) || maintenanceId <= 0)
+                return;
 
-        /// <summary>
-        /// Broadcast new alert to all users
-        /// </summary>
-        /// <param name="alert">Alert object</param>
-        public async Task BroadcastAlert(object alert)
-        {
-            await Clients.All.SendAsync("NewAlert", alert);
+            await Clients.All.SendAsync("MaintenanceUpdate", new
+            {
+                UpdateType = updateType,
+                MaintenanceId = maintenanceId,
+                Message = message ?? $"Maintenance task {updateType}",
+                Timestamp = DateTime.UtcNow,
+                UserId = Context.User?.Identity?.Name
+            });
         }
 
         /// <summary>
@@ -79,12 +86,12 @@ namespace FEENALOoFINALE.Hubs
         /// </summary>
         public override async Task OnConnectedAsync()
         {
-            // Auto-join to common groups
-            await Groups.AddToGroupAsync(Context.ConnectionId, "Notifications");
-            
-            // Log connection
-            Console.WriteLine($"User {Context.User?.Identity?.Name} connected to SignalR hub");
-            
+            var userId = Context.User?.Identity?.Name;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, "Dashboard");
+                await Clients.All.SendAsync("UserConnected", userId);
+            }
             await base.OnConnectedAsync();
         }
 
@@ -93,10 +100,55 @@ namespace FEENALOoFINALE.Hubs
         /// </summary>
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            // Log disconnection
-            Console.WriteLine($"User {Context.User?.Identity?.Name} disconnected from SignalR hub");
-            
+            var userId = Context.User?.Identity?.Name;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Clients.All.SendAsync("UserDisconnected", userId);
+            }
             await base.OnDisconnectedAsync(exception);
+        }
+
+        /// <summary>
+        /// Send equipment status update
+        /// </summary>
+        public async Task SendEquipmentStatusUpdate(int equipmentId, string status, string message)
+        {
+            if (equipmentId <= 0 || string.IsNullOrWhiteSpace(status))
+                return;
+
+            await Clients.Group("Dashboard").SendAsync("EquipmentStatusUpdate", new
+            {
+                EquipmentId = equipmentId,
+                Status = status,
+                Message = message ?? $"Equipment status changed to {status}",
+                Timestamp = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
+        /// Send alert notification using DTO to avoid circular references
+        /// </summary>
+        /// <param name="alert">Alert to send</param>
+        public async Task SendAlertNotification(Alert alert)
+        {
+            if (alert == null) return;
+            
+            var alertDto = AlertNotificationDto.FromAlert(alert);
+            await Clients.Group("Dashboard").SendAsync("AlertCreated", alertDto);
+            await Clients.Group("Alerts").SendAsync("AlertCreated", alertDto);
+        }
+        
+        /// <summary>
+        /// Send alert update notification using DTO
+        /// </summary>
+        /// <param name="alert">Updated alert</param>
+        public async Task SendAlertUpdate(Alert alert)
+        {
+            if (alert == null) return;
+            
+            var alertDto = AlertNotificationDto.FromAlert(alert);
+            await Clients.Group("Dashboard").SendAsync("AlertUpdated", alertDto);
+            await Clients.Group("Alerts").SendAsync("AlertUpdated", alertDto);
         }
     }
 }

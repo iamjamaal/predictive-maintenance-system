@@ -1,0 +1,240 @@
+@model FEENALOoFINALE.Models.ViewModels.SemesterDeleteViewModel
+@{
+    ViewData["Title"] = "Delete Semester";
+}
+
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Delete Semester
+                    </h1>
+                    <p class="text-muted mb-0">Confirm deletion of semester and associated data</p>
+                </div>
+                <div>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deletion Warning Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Confirm Semester Deletion
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (!Model.CanDelete)
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle me-2"></i>
+                            <strong>Cannot Delete:</strong> @Model.DeletionBlockReason
+                        </div>
+                        <div class="text-center">
+                            <a href="@Url.Action("Edit", new { id = Model.SemesterId })" class="btn btn-warning">
+                                <i class="bi bi-pencil"></i> Edit Semester Instead
+                            </a>
+                            <a href="@Url.Action("Index")" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Warning:</strong> This action cannot be undone. Please review the implications below.
+                        </div>
+
+                        <!-- Semester Details -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="text-muted">Semester Information</h6>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Name:</strong></td>
+                                        <td>@Model.SemesterName</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Duration:</strong></td>
+                                        <td>@Model.StartDate.ToString("MMM dd, yyyy") - @Model.EndDate.ToString("MMM dd, yyyy")</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Status:</strong></td>
+                                        <td>
+                                            @if (Model.IsActive)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Uploaded:</strong></td>
+                                        <td>@Model.UploadDate.ToString("MMM dd, yyyy") @if (!string.IsNullOrEmpty(Model.UploadedByName)) { <span class="text-muted">by @Model.UploadedByName</span> }</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-muted">Data Impact</h6>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Equipment Usage Records:</strong></td>
+                                        <td>
+                                            @if (Model.EquipmentUsageCount > 0)
+                                            {
+                                                <span class="text-warning">@Model.EquipmentUsageCount records</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">None</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Related Maintenance Tasks:</strong></td>
+                                        <td>
+                                            @if (Model.MaintenanceTaskCount > 0)
+                                            {
+                                                <span class="text-warning">@Model.MaintenanceTaskCount tasks</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">None</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Usage Hours:</strong></td>
+                                        <td>
+                                            @if (Model.TotalUsageHours > 0)
+                                            {
+                                                <span class="text-info">@Model.TotalUsageHours.ToString("F1") hours</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">None</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Deletion Warnings -->
+                        @if (Model.DeletionWarnings.Any())
+                        {
+                            <div class="mb-4">
+                                <h6 class="text-muted">Deletion Impact</h6>
+                                <ul class="list-unstyled">
+                                    @foreach (var warning in Model.DeletionWarnings)
+                                    {
+                                        <li class="mb-2">
+                                            <i class="bi bi-arrow-right text-warning me-2"></i>
+                                            @warning
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <!-- Confirmation Form -->
+                        <form asp-action="Delete" method="post" class="text-center">
+                            <input type="hidden" asp-for="SemesterId" />
+                            
+                            <div class="mb-4">
+                                <div class="form-check d-inline-block">
+                                    <input class="form-check-input" type="checkbox" id="confirmDeletion" required>
+                                    <label class="form-check-label text-danger" for="confirmDeletion">
+                                        <strong>I understand this action cannot be undone and want to permanently delete this semester</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="btn-group" role="group">
+                                <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                                    <i class="bi bi-trash"></i> Delete Semester Permanently
+                                </button>
+                                <a href="@Url.Action("Details", new { id = Model.SemesterId })" class="btn btn-secondary">
+                                    <i class="bi bi-x"></i> Cancel
+                                </a>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alternative Actions -->
+    @if (Model.CanDelete)
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">Alternative Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Instead of deleting, you might consider:</p>
+                        <div class="btn-group" role="group">
+                            <a href="@Url.Action("Edit", new { id = Model.SemesterId })" class="btn btn-outline-warning">
+                                <i class="bi bi-pencil"></i> Edit Semester Details
+                            </a>
+                            @if (Model.IsActive)
+                            {
+                                <button type="button" class="btn btn-outline-secondary" title="Deactivate semester to archive it">
+                                    <i class="bi bi-pause"></i> Deactivate Semester
+                                </button>
+                            }
+                            <a href="@Url.Action("Details", new { id = Model.SemesterId })" class="btn btn-outline-info">
+                                <i class="bi bi-eye"></i> View Full Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Enable/disable delete button based on confirmation checkbox
+            const confirmCheckbox = document.getElementById('confirmDeletion');
+            const deleteBtn = document.getElementById('deleteBtn');
+            
+            if (confirmCheckbox && deleteBtn) {
+                confirmCheckbox.addEventListener('change', function() {
+                    deleteBtn.disabled = !this.checked;
+                });
+            }
+
+            // Add additional confirmation on form submit
+            const form = document.querySelector('form[method="post"]');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    if (!confirm('Are you absolutely sure you want to delete this semester? This action cannot be undone.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+            }
+        });
+    </script>
+}

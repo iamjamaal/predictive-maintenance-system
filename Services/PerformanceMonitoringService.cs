@@ -78,6 +78,14 @@ namespace FEENALOoFINALE.Services
             }
         }
 
+        public void TrackOperation(string operationName, TimeSpan duration, bool success = true)
+        {
+            lock (_lock)
+            {
+                _performanceMetrics[operationName] = (long)duration.TotalMilliseconds;
+            }
+        }
+
         public Task<PerformanceReport> GetReportAsync()
         {
             lock (_lock)

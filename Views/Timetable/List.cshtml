@@ -1,0 +1,414 @@
+@model FEENALOoFINALE.Models.ViewModels.TimetableListViewModel
+@using FEENALOoFINALE.Models.ViewModels
+@{
+    ViewData["Title"] = "All Semesters";
+}
+
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Timetable Management</a></li>
+                    <li class="breadcrumb-item active">All Semesters</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">All Semesters</h1>
+                    <p class="text-muted mb-0">Manage and view all semester records</p>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dashboard
+                        </a>
+                        <a href="@Url.Action("Upload")" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> New Semester
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="searchTerm" class="form-control" placeholder="Semester name or year..." value="@Model.SearchTerm" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select name="statusFilter" class="form-select">
+                                <option value="">All Statuses</option>
+                                <option value="@SemesterStatus.Upcoming" selected="@(Model.FilterOptions.SelectedStatuses?.Contains(SemesterStatus.Upcoming.ToString()) == true)">Upcoming</option>
+                                <option value="@SemesterStatus.Active" selected="@(Model.FilterOptions.SelectedStatuses?.Contains(SemesterStatus.Active.ToString()) == true)">Active</option>
+                                <option value="@SemesterStatus.Completed" selected="@(Model.FilterOptions.SelectedStatuses?.Contains(SemesterStatus.Completed.ToString()) == true)">Completed</option>
+                                <option value="@SemesterStatus.Inactive" selected="@(Model.FilterOptions.SelectedStatuses?.Contains(SemesterStatus.Inactive.ToString()) == true)">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Processing Status</label>
+                            <select name="processingStatusFilter" class="form-select">
+                                <option value="">All Processing</option>
+                                <option value="@SemesterProcessingStatus.Pending" selected="@(Model.FilterOptions.SelectedProcessingStatuses?.Contains(SemesterProcessingStatus.Pending.ToString()) == true)">Pending</option>
+                                <option value="@SemesterProcessingStatus.Processing" selected="@(Model.FilterOptions.SelectedProcessingStatuses?.Contains(SemesterProcessingStatus.Processing.ToString()) == true)">Processing</option>
+                                <option value="@SemesterProcessingStatus.Completed" selected="@(Model.FilterOptions.SelectedProcessingStatuses?.Contains(SemesterProcessingStatus.Completed.ToString()) == true)">Completed</option>
+                                <option value="@SemesterProcessingStatus.Failed" selected="@(Model.FilterOptions.SelectedProcessingStatuses?.Contains(SemesterProcessingStatus.Failed.ToString()) == true)">Failed</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Sort By</label>
+                            <select name="sortBy" class="form-select">
+                                <option value="StartDate" selected="@(Model.SortBy == "StartDate")">Start Date</option>
+                                <option value="SemesterName" selected="@(Model.SortBy == "SemesterName")">Name</option>
+                                <option value="Status" selected="@(Model.SortBy == "Status")">Status</option>
+                                <option value="CreatedDate" selected="@(Model.SortBy == "CreatedDate")">Created</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Order</label>
+                            <select name="sortDirection" class="form-select">
+                                <option value="desc" selected="@(Model.SortDirection == "desc")">Desc</option>
+                                <option value="asc" selected="@(Model.SortDirection == "asc")">Asc</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Filter
+                                </button>
+                                <a href="@Url.Action("List")" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@Model.TotalRecords</h4>
+                            <p class="mb-0">Total Semesters</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-calendar display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@Model.Semesters.Count(s => s.Status == SemesterStatus.Active)</h4>
+                            <p class="mb-0">Active</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-play-circle display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@Model.Semesters.Count(s => s.Status == SemesterStatus.Completed)</h4>
+                            <p class="mb-0">Completed</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-check-circle display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@Model.Semesters.Count(s => s.ProcessingStatus == SemesterProcessingStatus.Pending || s.ProcessingStatus == SemesterProcessingStatus.Processing)</h4>
+                            <p class="mb-0">Processing</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-clock display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Semesters List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list"></i> Semesters
+                        @if (Model.Semesters.Any())
+                        {
+                            <span class="badge bg-secondary ms-2">@Model.Semesters.Count() results</span>
+                        }
+                    </h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="viewMode" id="cardView" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary" for="cardView">
+                            <i class="bi bi-grid"></i> Cards
+                        </label>
+                        <input type="radio" class="btn-check" name="viewMode" id="tableView" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="tableView">
+                            <i class="bi bi-list"></i> Table
+                        </label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (Model.Semesters.Any())
+                    {
+                        <!-- Card View -->
+                        <div id="cardViewContent" class="row">
+                            @foreach (var semester in Model.Semesters)
+                            {
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card h-100 border-@(semester.Status == SemesterStatus.Active ? "success" : 
+                                                                   semester.Status == SemesterStatus.Upcoming ? "info" : 
+                                                                   semester.Status == SemesterStatus.Completed ? "secondary" : "warning")">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="card-title mb-0">@semester.SemesterName</h6>
+                                            <span class="badge bg-@(semester.Status == SemesterStatus.Active ? "success" : 
+                                                                   semester.Status == SemesterStatus.Upcoming ? "info" : 
+                                                                   semester.Status == SemesterStatus.Completed ? "secondary" : "warning")">
+                                                @semester.Status
+                                            </span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <small class="text-muted">Duration:</small>
+                                                <br>@semester.StartDate.ToString("MMM dd") - @semester.EndDate.ToString("MMM dd, yyyy")
+                                                <br><small>(@semester.NumberOfWeeks weeks)</small>
+                                            </div>
+                                            @if (semester.Status == SemesterStatus.Active || semester.Status == SemesterStatus.Completed)
+                                            {
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Progress:</small>
+                                                    <div class="progress mb-1" style="height: 8px;">
+                                                        <div class="progress-bar" role="progressbar" style="width: @semester.ProgressPercentage%"></div>
+                                                    </div>
+                                                    <small>@semester.ProgressPercentage.ToString("F1")% complete</small>
+                                                </div>
+                                            }
+                                            <div class="row text-center">
+                                                <div class="col-6">
+                                                    <small class="text-muted">Equipment</small>
+                                                    <br><strong>@semester.EquipmentCount</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted">Usage Hours</small>
+                                                    <br><strong>@semester.TotalUsageHours.ToString("F0")</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <div class="btn-group w-100" role="group">
+                                                <a href="@Url.Action("Details", new { id = semester.SemesterId })" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                                @if (semester.Status == SemesterStatus.Active)
+                                                {
+                                                    <a href="@Url.Action("Progress", new { id = semester.SemesterId })" class="btn btn-outline-info btn-sm">
+                                                        <i class="bi bi-graph-up"></i> Progress
+                                                    </a>
+                                                }
+                                                @if (semester.CanEdit)
+                                                {
+                                                    <a href="@Url.Action("Edit", new { id = semester.SemesterId })" class="btn btn-outline-secondary btn-sm">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </a>
+                                                }
+                                                @if (semester.CanDelete)
+                                                {
+                                                    <a href="@Url.Action("ConfirmDelete", new { id = semester.SemesterId })" class="btn btn-outline-danger btn-sm">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </a>
+                                                }
+                                            </div>
+                                            <div class="mt-2 text-center">
+                                                <small class="text-muted">Created @semester.UploadDate.ToString("MMM dd, yyyy")</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Table View -->
+                        <div id="tableViewContent" class="d-none">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Semester</th>
+                                            <th>Duration</th>
+                                            <th>Status</th>
+                                            <th>Progress</th>
+                                            <th>Equipment</th>
+                                            <th>Usage Hours</th>
+                                            <th>Processing</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var semester in Model.Semesters)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <strong>@semester.SemesterName</strong>
+                                                    @if (semester.IsActive)
+                                                    {
+                                                        <br><span class="badge bg-success">Active</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @semester.StartDate.ToString("MMM dd") - @semester.EndDate.ToString("MMM dd, yyyy")
+                                                    <br><small class="text-muted">@semester.NumberOfWeeks weeks</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-@(semester.Status == SemesterStatus.Active ? "success" : 
+                                                                           semester.Status == SemesterStatus.Upcoming ? "info" : 
+                                                                           semester.Status == SemesterStatus.Completed ? "secondary" : "warning")">
+                                                        @semester.Status
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if (semester.Status == SemesterStatus.Active || semester.Status == SemesterStatus.Completed)
+                                                    {
+                                                        <div class="progress" style="height: 8px; width: 80px;">
+                                                            <div class="progress-bar" role="progressbar" style="width: @semester.ProgressPercentage%"></div>
+                                                        </div>
+                                                        <small>@semester.ProgressPercentage.ToString("F1")%</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-muted">Not started</small>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <strong>@semester.EquipmentCount</strong>
+                                                </td>
+                                                <td>
+                                                    <strong>@semester.TotalUsageHours.ToString("F0")h</strong>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-@(semester.ProcessingStatus == SemesterProcessingStatus.Completed ? "success" : 
+                                                                           semester.ProcessingStatus == SemesterProcessingStatus.Processing ? "warning" : 
+                                                                           semester.ProcessingStatus == SemesterProcessingStatus.Failed ? "danger" : "secondary")">
+                                                        @semester.ProcessingStatus
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">@semester.UploadDate.ToString("MMM dd, yyyy")</small>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <a href="@Url.Action("Details", new { id = semester.SemesterId })" class="btn btn-outline-primary" title="View Details">
+                                                            <i class="bi bi-eye"></i>
+                                                        </a>
+                                                        @if (semester.Status == SemesterStatus.Active)
+                                                        {
+                                                            <a href="@Url.Action("Progress", new { id = semester.SemesterId })" class="btn btn-outline-info" title="View Progress">
+                                                                <i class="bi bi-graph-up"></i>
+                                                            </a>
+                                                        }
+                                                        @if (semester.CanEdit)
+                                                        {
+                                                            <a href="@Url.Action("Edit", new { id = semester.SemesterId })" class="btn btn-outline-secondary" title="Edit">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </a>
+                                                        }
+                                                        @if (semester.CanDelete)
+                                                        {
+                                                            <a href="@Url.Action("ConfirmDelete", new { id = semester.SemesterId })" class="btn btn-outline-danger" title="Delete">
+                                                                <i class="bi bi-trash"></i>
+                                                            </a>
+                                                        }
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-calendar-x display-4 text-muted mb-3"></i>
+                            <h5>No Semesters Found</h5>
+                            @if (!string.IsNullOrEmpty(Model.SearchTerm) || Model.FilterOptions.SelectedStatuses?.Any() == true)
+                            {
+                                <p class="text-muted">No semesters match your current filters.</p>
+                                <a href="@Url.Action("List")" class="btn btn-outline-primary">
+                                    <i class="bi bi-x-circle"></i> Clear Filters
+                                </a>
+                            }
+                            else
+                            {
+                                <p class="text-muted">You haven't created any semesters yet.</p>
+                                <a href="@Url.Action("Upload")" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Create Your First Semester
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // View mode toggle
+            $('input[name="viewMode"]').change(function() {
+                if ($(this).attr('id') === 'cardView') {
+                    $('#cardViewContent').removeClass('d-none');
+                    $('#tableViewContent').addClass('d-none');
+                } else {
+                    $('#cardViewContent').addClass('d-none');
+                    $('#tableViewContent').removeClass('d-none');
+                }
+            });
+            
+            // Auto-submit form on filter changes (optional)
+            $('.form-select').change(function() {
+                // Uncomment to auto-submit on filter change
+                // $(this).closest('form').submit();
+            });
+        });
+    </script>
+}

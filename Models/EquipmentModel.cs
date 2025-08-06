@@ -19,5 +19,8 @@ namespace FEENALOoFINALE.Models
         public virtual EquipmentType? EquipmentType { get; set; }
 
         public virtual ICollection<Equipment> Equipments { get; set; } = new List<Equipment>();
+        
+        // Manufacturer documents shared across all equipment of this model
+        public virtual ICollection<ManufacturerDocument> ManufacturerDocuments { get; set; } = new List<ManufacturerDocument>();
     }
 }

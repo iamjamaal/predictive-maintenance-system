@@ -11,5 +11,8 @@ namespace FEENALOoFINALE.Services
         void StartTimer(string operationName);
         void StopTimer(string operationName);
         Task<PerformanceReport> GetReportAsync();
+        
+        // Method for tracking operations
+        void TrackOperation(string operationName, TimeSpan duration, bool success = true);
     }
 }

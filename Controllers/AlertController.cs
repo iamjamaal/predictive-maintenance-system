@@ -230,6 +230,29 @@ namespace FEENALOoFINALE.Controllers
 
             var currentUser = await _userManager.GetUserAsync(User);
             
+            // Auto-assign alert to current user if not already assigned or reassign if assigned to someone else
+            if (alert.AssignedToUserId == null && currentUser != null)
+            {
+                alert.AssignedToUserId = currentUser.Id;
+                alert.Status = AlertStatus.InProgress;
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Alert has been assigned to you and scheduled for maintenance.";
+            }
+            else if (alert.AssignedToUserId != null && currentUser != null && alert.AssignedToUserId != currentUser.Id)
+            {
+                // If alert is assigned to someone else, reassign to current user
+                alert.AssignedToUserId = currentUser.Id;
+                alert.Status = AlertStatus.InProgress;
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Alert has been reassigned to you and scheduled for maintenance.";
+            }
+            else if (currentUser != null)
+            {
+                TempData["SuccessMessage"] = "Maintenance has been scheduled for this alert.";
+            }
+            
             // Create a properly scheduled and assigned MaintenanceTask from the alert
             var priority = alert.Priority == AlertPriority.High ? TaskPriority.Critical :
                           alert.Priority == AlertPriority.Medium ? TaskPriority.High : TaskPriority.Medium;
@@ -283,11 +306,57 @@ namespace FEENALOoFINALE.Controllers
 
         public async Task<IActionResult> MarkInProgress(int id)
         {
-            var alert = await _context.Alerts.FindAsync(id);
+            var alert = await _context.Alerts
+                .Include(a => a.Equipment)
+                .FirstOrDefaultAsync(a => a.AlertId == id);
             if (alert == null)
                 return NotFound();
 
+            var currentUser = await _userManager.GetUserAsync(User);
+            
+            // Auto-assign alert to current user if not already assigned
+            if (alert.AssignedToUserId == null && currentUser != null)
+            {
+                alert.AssignedToUserId = currentUser.Id;
+                TempData["SuccessMessage"] = "Alert has been assigned to you and marked as in progress.";
+            }
+            else if (alert.AssignedToUserId != null && currentUser != null && alert.AssignedToUserId != currentUser.Id)
+            {
+                // If alert is assigned to someone else, reassign to current user
+                alert.AssignedToUserId = currentUser.Id;
+                TempData["SuccessMessage"] = "Alert has been reassigned to you and marked as in progress.";
+            }
+            else
+            {
+                TempData["SuccessMessage"] = "Alert has been marked as in progress.";
+            }
+
             alert.Status = AlertStatus.InProgress;
+            
+            // Check if there's already a maintenance log for this alert to avoid duplicates
+            var existingLog = await _context.MaintenanceLogs
+                .FirstOrDefaultAsync(ml => ml.AlertId == alert.AlertId && ml.Status == MaintenanceStatus.Pending);
+            
+            if (existingLog == null && alert.Equipment != null)
+            {
+                // Create a maintenance log entry when starting work on an alert
+                var maintenanceLog = new MaintenanceLog
+                {
+                    EquipmentId = alert.Equipment.EquipmentId,
+                    AlertId = alert.AlertId,
+                    LogDate = DateTime.Now,
+                    MaintenanceType = MaintenanceType.Corrective, // Since this is from an alert
+                    Description = $"Work started on alert: {alert.Title}",
+                    Technician = currentUser?.UserName ?? "Unknown",
+                    Status = MaintenanceStatus.Pending, // Starts as pending until completed
+                    Cost = 0, // Will be updated when work is completed
+                    DowntimeHours = 0 // Will be updated when work is completed
+                };
+                
+                _context.MaintenanceLogs.Add(maintenanceLog);
+                TempData["InfoMessage"] = "A maintenance log has been created for you to complete when work is finished.";
+            }
+            
             _context.Update(alert);
             await _context.SaveChangesAsync();
 
@@ -640,6 +709,26 @@ namespace FEENALOoFINALE.Controllers
                 TempData["ErrorMessage"] = $"Error adding test data: {ex.Message}";
                 return RedirectToAction("Index");
             }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AssignToMe(int id)
+        {
+            var alert = await _context.Alerts.FindAsync(id);
+            if (alert == null)
+                return NotFound();
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+                return Unauthorized();
+
+            // Assign alert to current user
+            alert.AssignedToUserId = currentUser.Id;
+            _context.Update(alert);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Alert has been assigned to you.";
+            return RedirectToAction(nameof(Index));
         }
     }
 }

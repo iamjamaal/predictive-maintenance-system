@@ -11,7 +11,7 @@ namespace FEENALOoFINALE.Services
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<AutomatedAlertService> _logger;
         private readonly IHubContext<MaintenanceHub> _hubContext;
-        private readonly TimeSpan _checkPeriod = TimeSpan.FromMinutes(10); // Check every 10 minutes
+        private readonly TimeSpan _checkPeriod = TimeSpan.FromDays(1); // Check only once per day now
 
         public AutomatedAlertService(
             IServiceScopeFactory serviceScopeFactory,
@@ -26,6 +26,9 @@ namespace FEENALOoFINALE.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Automated Alert Service started");
+
+            // Wait 2 hours before first check to avoid generating alerts on startup
+            await Task.Delay(TimeSpan.FromHours(2), stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -97,16 +100,18 @@ namespace FEENALOoFINALE.Services
 
             foreach (var task in overdueTasks)
             {
-                // Check if we already have a recent alert for this task
+                // Check if we already have a recent alert for this task (within last 30 days)
                 var existingAlert = await dbContext.Alerts
-                    .Where(a => a.Description.Contains($"Task {task.TaskId}") && 
-                               a.CreatedDate >= DateTime.Now.AddDays(-1))
+                    .Where(a => a.EquipmentId == task.EquipmentId && 
+                               a.Description.Contains($"Task {task.TaskId}") && 
+                               a.CreatedDate >= DateTime.Now.AddDays(-30))
                     .FirstOrDefaultAsync();
 
                 if (existingAlert == null)
                 {
                     var daysOverdue = (DateTime.Now - task.ScheduledDate).TotalDays;
-                    var priority = daysOverdue > 7 ? AlertPriority.High : daysOverdue > 3 ? AlertPriority.High : AlertPriority.Medium;
+                    // Make critical alerts extremely rare - only after 120+ days overdue
+                    var priority = daysOverdue > 120 ? AlertPriority.High : daysOverdue > 60 ? AlertPriority.Medium : AlertPriority.Low;
 
                     newAlerts.Add(new Alert
                     {
@@ -128,16 +133,17 @@ namespace FEENALOoFINALE.Services
 
             foreach (var equipment in problematicEquipment)
             {
-                // Check if we already have a recent alert for this equipment status
+                // Check if we already have a recent alert for this equipment status (within last 7 days)
                 var existingAlert = await dbContext.Alerts
                     .Where(a => a.EquipmentId == equipment.EquipmentId && 
                                a.Description.Contains("status") && 
-                               a.CreatedDate >= DateTime.Now.AddHours(-4))
+                               a.CreatedDate >= DateTime.Now.AddDays(-7))
                     .FirstOrDefaultAsync();
 
                 if (existingAlert == null)
                 {
-                    var priority = equipment.Status == EquipmentStatus.Inactive ? AlertPriority.High : AlertPriority.Medium;
+                    // Only create alerts for truly problematic equipment, not just inactive
+                    var priority = AlertPriority.Low; // Keep equipment status alerts as low priority
                     var statusMessage = equipment.Status == EquipmentStatus.Inactive ? "inactive" : "under maintenance";
 
                     newAlerts.Add(new Alert
@@ -164,15 +170,17 @@ namespace FEENALOoFINALE.Services
                 
                 if (currentStock <= item.MinimumStockLevel)
                 {
-                    // Check if we already have a recent alert for this inventory item
+                    // Check if we already have a recent alert for this inventory item (within last 7 days)
                     var existingAlert = await dbContext.Alerts
                         .Where(a => a.Description.Contains($"inventory item {item.Name}") && 
-                                   a.CreatedDate >= DateTime.Now.AddDays(-1))
+                                   a.CreatedDate >= DateTime.Now.AddDays(-7))
                         .FirstOrDefaultAsync();
 
                     if (existingAlert == null)
                     {
-                        var priority = currentStock == 0 ? AlertPriority.High : AlertPriority.High;
+                        // Only mark as critical if completely out of stock AND it's a critical item
+                        var priority = currentStock == 0 && item.Name.Contains("Critical", StringComparison.OrdinalIgnoreCase) ? 
+                                      AlertPriority.High : AlertPriority.Low;
                         var stockStatus = currentStock == 0 ? "out of stock" : "low stock";
 
                         newAlerts.Add(new Alert
@@ -209,7 +217,9 @@ namespace FEENALOoFINALE.Services
 
                 if (existingAlert == null)
                 {
-                    var priority = prediction.Status == PredictionStatus.High ? AlertPriority.High : AlertPriority.High;
+                    // Only mark as critical if high prediction status AND high confidence
+                    var priority = (prediction.Status == PredictionStatus.High && prediction.ConfidenceLevel > 80) ? 
+                                  AlertPriority.High : AlertPriority.Medium;
 
                     newAlerts.Add(new Alert
                     {
@@ -236,13 +246,13 @@ namespace FEENALOoFINALE.Services
                     .OrderByDescending(ml => ml.LogDate)
                     .FirstOrDefault();
 
-                if (lastMaintenance == null || (DateTime.Now - lastMaintenance.LogDate).TotalDays > 365)
+                if (lastMaintenance == null || (DateTime.Now - lastMaintenance.LogDate).TotalDays > 1095) // Only alert after 3 years, not 1
                 {
-                    // Check if we already have a recent alert for this equipment maintenance
+                    // Check if we already have a recent alert for this equipment maintenance (within last 30 days)
                     var existingAlert = await dbContext.Alerts
                         .Where(a => a.EquipmentId == item.EquipmentId && 
                                    a.Description.Contains("maintenance overdue") && 
-                                   a.CreatedDate >= DateTime.Now.AddDays(-7))
+                                   a.CreatedDate >= DateTime.Now.AddDays(-30))
                         .FirstOrDefaultAsync();
 
                     if (existingAlert == null)
@@ -251,7 +261,8 @@ namespace FEENALOoFINALE.Services
                             ? (DateTime.Now - lastMaintenance.LogDate).TotalDays 
                             : 9999;
 
-                        var priority = daysSinceLastMaintenance > 730 ? AlertPriority.High : AlertPriority.Medium; // 2 years = high priority
+                        // Make critical alerts extremely rare - only after 5+ years without maintenance
+                        var priority = daysSinceLastMaintenance > 1825 ? AlertPriority.High : AlertPriority.Low; // 5 years = high priority
 
                         var message = lastMaintenance != null 
                             ? $"Equipment {item.EquipmentModel?.ModelName ?? "Unknown"} maintenance overdue: {Math.Floor(daysSinceLastMaintenance)} days since last maintenance"

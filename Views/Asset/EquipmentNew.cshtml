@@ -1,5 +1,10 @@
 @model List<FEENALOoFINALE.Models.UnifiedAssetViewModel>
 
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger text-center">@ViewBag.ErrorMessage</div>
+}
+
 <div class="table-responsive">
     <table class="table table-hover">
         <thead class="table-light">

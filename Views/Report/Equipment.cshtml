@@ -1,0 +1,320 @@
+@model FEENALOoFINALE.Models.ViewModels.EquipmentReportViewModel
+@{
+    ViewData["Title"] = Model.PageTitle;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 text-primary">
+                        <i class="bi bi-gear-wide-connected me-2"></i>@Model.PageTitle
+                    </h2>
+                    <p class="text-muted mb-0">Comprehensive equipment analysis and reporting</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i>Print
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="exportToExcel()">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-primary mb-2">@Model.TotalEquipment</div>
+                    <h6 class="card-title text-muted mb-0">Total Equipment</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-success mb-2">@Model.ActiveEquipment</div>
+                    <h6 class="card-title text-muted mb-0">Active</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-warning mb-2">@Model.InactiveEquipment</div>
+                    <h6 class="card-title text-muted mb-0">Inactive</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-danger mb-2">@Model.RetiredEquipment</div>
+                    <h6 class="card-title text-muted mb-0">Retired</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Average Equipment Age</h6>
+                    <div class="h4 text-info">@Math.Round(Model.AverageAge, 1) years</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Total Maintenance Cost</h6>
+                    <div class="h4 text-success">$@Model.TotalMaintenanceCost.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Generated Date</h6>
+                    <div class="h6 text-muted">@Model.GeneratedDate.ToString("MMM dd, yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>Filters
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="buildingId" class="form-label">Building</label>
+                                <select class="form-select" id="buildingId" name="buildingId">
+                                    <option value="">All Buildings</option>
+                                    @if (ViewBag.Buildings != null)
+                                    {
+                                        @foreach (var building in ViewBag.Buildings)
+                                        {
+                                            <option value="@building.BuildingId" 
+                                                    selected="@(Context.Request.Query["buildingId"] == building.BuildingId.ToString())">
+                                                @building.BuildingName
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="equipmentTypeId" class="form-label">Equipment Type</label>
+                                <select class="form-select" id="equipmentTypeId" name="equipmentTypeId">
+                                    <option value="">All Types</option>
+                                    @if (ViewBag.EquipmentTypes != null)
+                                    {
+                                        @foreach (var type in ViewBag.EquipmentTypes)
+                                        {
+                                            <option value="@type.EquipmentTypeId" 
+                                                    selected="@(Context.Request.Query["equipmentTypeId"] == type.EquipmentTypeId.ToString())">
+                                                @type.EquipmentTypeName
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="">All Statuses</option>
+                                    <option value="Active" selected="@(Context.Request.Query["status"] == "Active")">Active</option>
+                                    <option value="Inactive" selected="@(Context.Request.Query["status"] == "Inactive")">Inactive</option>
+                                    <option value="Retired" selected="@(Context.Request.Query["status"] == "Retired")">Retired</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-search me-1"></i>Apply Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipment List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-list me-2"></i>Equipment Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @if (Model.EquipmentList != null && Model.EquipmentList.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="equipmentTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Equipment ID</th>
+                                        <th>Type</th>
+                                        <th>Model</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                        <th>Installation Date</th>
+                                        <th>Last Maintenance</th>
+                                        <th>Active Alerts</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var equipment in Model.EquipmentList)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <a asp-controller="Equipment" asp-action="Details" asp-route-id="@equipment.EquipmentId" 
+                                                   class="text-decoration-none fw-bold">
+                                                    #@equipment.EquipmentId
+                                                </a>
+                                            </td>
+                                            <td>@equipment.TypeName</td>
+                                            <td>@equipment.ModelName</td>
+                                            <td>@equipment.Location</td>
+                                            <td>
+                                                @{
+                                                    var statusBadge = equipment.Status switch
+                                                    {
+                                                        FEENALOoFINALE.Models.EquipmentStatus.Active => "success",
+                                                        FEENALOoFINALE.Models.EquipmentStatus.Inactive => "warning",
+                                                        FEENALOoFINALE.Models.EquipmentStatus.Retired => "danger",
+                                                        _ => "secondary"
+                                                    };
+                                                }
+                                                <span class="badge bg-@statusBadge">@equipment.Status</span>
+                                            </td>
+                                            <td>
+                                                @if (equipment.InstallationDate.HasValue)
+                                                {
+                                                    @equipment.InstallationDate.Value.ToString("MMM dd, yyyy")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">N/A</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (equipment.LastMaintenanceDate.HasValue)
+                                                {
+                                                    @equipment.LastMaintenanceDate.Value.ToString("MMM dd, yyyy")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Never</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (equipment.ActiveAlertsCount > 0)
+                                                {
+                                                    <span class="badge bg-danger">@equipment.ActiveAlertsCount</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">0</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a asp-controller="Equipment" asp-action="Details" asp-route-id="@equipment.EquipmentId" 
+                                                       class="btn btn-outline-primary" title="View Details">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <a asp-controller="Equipment" asp-action="Edit" asp-route-id="@equipment.EquipmentId" 
+                                                       class="btn btn-outline-secondary" title="Edit">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    <a asp-controller="MaintenanceLog" asp-action="Create" asp-route-equipmentId="@equipment.EquipmentId" 
+                                                       class="btn btn-outline-success" title="Schedule Maintenance">
+                                                        <i class="bi bi-wrench"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-gear-wide-connected display-1 mb-3"></i>
+                            <h5>No Equipment Found</h5>
+                            <p>No equipment matches the current filter criteria.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function exportToExcel() {
+            // Simple CSV export
+            const table = document.getElementById('equipmentTable');
+            let csv = '';
+            
+            // Headers
+            const headers = table.querySelectorAll('thead th');
+            const headerRow = Array.from(headers).slice(0, -1).map(th => th.textContent.trim()).join(',');
+            csv += headerRow + '\n';
+            
+            // Data rows
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = Array.from(cells).slice(0, -1).map(td => {
+                    let text = td.textContent.trim();
+                    // Clean up the text and escape commas
+                    text = text.replace(/"/g, '""');
+                    if (text.includes(',')) {
+                        text = `"${text}"`;
+                    }
+                    return text;
+                }).join(',');
+                csv += rowData + '\n';
+            });
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'equipment-report.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+}

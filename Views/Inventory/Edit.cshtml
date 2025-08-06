@@ -4,40 +4,284 @@
     ViewData["Title"] = "Edit Inventory Item";
 }
 
-<h1>Edit Inventory Item</h1>
-
-<div class="row">
-    <div class="col-md-8">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" asp-for="ItemId" />
-            
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Inventory</a></li>
+                    <li class="breadcrumb-item active">Edit Item</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Edit Inventory Item</h1>
+                    <p class="text-muted mb-0">Update item information and stock management settings</p>
+                </div>
+                <div>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                    <a href="@Url.Action("Details", new { id = Model.ItemId })" class="btn btn-outline-info">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label asp-for="Description" class="control-label"></label>
-                <textarea asp-for="Description" class="form-control"></textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Category" class="control-label"></label>
-                <input asp-for="Category" class="form-control" />
-                <span asp-validation-for="Category" class="text-danger"></span>
-            </div>
-
-            <div class="form-group mt-3">
-                <input type="submit" value="Save" class="btn btn-primary" />
-                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
-            </div>
-        </form>
+        </div>
     </div>
+
+    <!-- Alerts -->
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Form -->
+    <form asp-action="Edit" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <input type="hidden" asp-for="ItemId" />
+        
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Basic Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Basic Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="Name" class="form-label">Item Name <span class="text-danger">*</span></label>
+                                    <input asp-for="Name" class="form-control" placeholder="Enter item name" />
+                                    <span asp-validation-for="Name" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="Category" class="form-label">Category <span class="text-danger">*</span></label>
+                                    <select asp-for="Category" class="form-select" asp-items="Html.GetEnumSelectList<FEENALOoFINALE.Models.ItemCategory>()">
+                                        <option value="">-- Select Category --</option>
+                                    </select>
+                                    <span asp-validation-for="Category" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Description" class="form-label">Description</label>
+                            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Enter item description..."></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="CompatibleModels" class="form-label">Compatible Equipment Models</label>
+                            <textarea asp-for="CompatibleModels" class="form-control" rows="2" placeholder="Enter compatible equipment models (comma-separated)"></textarea>
+                            <div class="form-text">List equipment models that this item is compatible with, separated by commas</div>
+                            <span asp-validation-for="CompatibleModels" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Management -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-boxes me-2"></i>Stock Management</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="MinimumStockLevel" class="form-label">Minimum Stock Level <span class="text-danger">*</span></label>
+                                    <input asp-for="MinimumStockLevel" class="form-control" type="number" min="0" />
+                                    <div class="form-text">Alert will be generated when stock falls below this level</div>
+                                    <span asp-validation-for="MinimumStockLevel" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="MaxStockLevel" class="form-label">Maximum Stock Level</label>
+                                    <input asp-for="MaxStockLevel" class="form-control" type="number" min="0" />
+                                    <div class="form-text">Maximum recommended stock level</div>
+                                    <span asp-validation-for="MaxStockLevel" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="ReorderPoint" class="form-label">Reorder Point</label>
+                                    <input asp-for="ReorderPoint" class="form-control" type="number" min="0" />
+                                    <div class="form-text">Stock level at which reorder should be triggered</div>
+                                    <span asp-validation-for="ReorderPoint" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="ReorderQuantity" class="form-label">Reorder Quantity</label>
+                                    <input asp-for="ReorderQuantity" class="form-control" type="number" min="0" />
+                                    <div class="form-text">Recommended quantity to order when restocking</div>
+                                    <span asp-validation-for="ReorderQuantity" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> Save Changes
+                                </button>
+                                <a asp-action="Index" class="btn btn-secondary">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </a>
+                            </div>
+                            <div>
+                                <a asp-action="AddStock" asp-route-id="@Model.ItemId" class="btn btn-success">
+                                    <i class="bi bi-plus-circle"></i> Add Stock
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@Model.ItemId" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete this item? This action cannot be undone.')">
+                                    <i class="bi bi-trash"></i> Delete Item
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-md-4">
+                <!-- Current Stock Info -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Current Stock Status</h6>
+                    </div>
+                    <div class="card-body">
+                        @{
+                            var currentStock = Model.InventoryStocks?.Sum(s => s.Quantity) ?? 0;
+                            var stockStatus = currentStock == 0 ? "Out of Stock" :
+                                             currentStock < Model.MinimumStockLevel ? "Low Stock" :
+                                             currentStock <= Model.ReorderPoint ? "Reorder Soon" : "Well Stocked";
+                            var statusClass = currentStock == 0 ? "text-danger" :
+                                             currentStock < Model.MinimumStockLevel ? "text-warning" :
+                                             currentStock <= Model.ReorderPoint ? "text-info" : "text-success";
+                        }
+                        <div class="row text-center">
+                            <div class="col-12 mb-3">
+                                <h3 class="@statusClass mb-0">@currentStock</h3>
+                                <small class="text-muted">Current Stock</small>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>Status:</span>
+                                <span class="@statusClass fw-bold">@stockStatus</span>
+                            </div>
+                        </div>
+                        <div class="progress mb-3">
+                            @{
+                                var progressPercentage = Model.MaxStockLevel > 0 ? (double)currentStock / Model.MaxStockLevel * 100 : 0;
+                                var progressClass = currentStock == 0 ? "bg-danger" :
+                                                   currentStock < Model.MinimumStockLevel ? "bg-warning" :
+                                                   currentStock <= Model.ReorderPoint ? "bg-info" : "bg-success";
+                            }
+                            <div class="progress-bar @progressClass" style="width: @(Math.Min(progressPercentage, 100))%"></div>
+                        </div>
+                        <small class="text-muted">
+                            Min: @Model.MinimumStockLevel | Max: @Model.MaxStockLevel
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a asp-action="AddStock" asp-route-id="@Model.ItemId" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-plus-circle"></i> Add Stock
+                            </a>
+                            <a href="#" class="btn btn-outline-info btn-sm">
+                                <i class="bi bi-clock-history"></i> View Stock History
+                            </a>
+                            <a href="#" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-bell"></i> Set Alert Preferences
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Related Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Item Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <small class="text-muted">Item ID:</small>
+                            <div>@Model.ItemId</div>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Category:</small>
+                            <div><span class="badge bg-light text-dark">@Model.Category</span></div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.CompatibleModels))
+                        {
+                            <div class="mb-2">
+                                <small class="text-muted">Compatible Models:</small>
+                                <div><small>@Model.CompatibleModels</small></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Auto-calculate reorder point based on minimum stock level
+        document.querySelector('input[name="MinimumStockLevel"]').addEventListener('change', function() {
+            const minLevel = parseInt(this.value) || 0;
+            const reorderPointInput = document.querySelector('input[name="ReorderPoint"]');
+            if (!reorderPointInput.value || parseInt(reorderPointInput.value) < minLevel) {
+                reorderPointInput.value = Math.ceil(minLevel * 1.2); // 20% above minimum
+            }
+        });
+
+        // Auto-calculate max stock level based on minimum and reorder quantity
+        document.querySelector('input[name="ReorderQuantity"]').addEventListener('change', function() {
+            const reorderQty = parseInt(this.value) || 0;
+            const minLevel = parseInt(document.querySelector('input[name="MinimumStockLevel"]').value) || 0;
+            const maxLevelInput = document.querySelector('input[name="MaxStockLevel"]');
+            if (!maxLevelInput.value) {
+                maxLevelInput.value = minLevel + (reorderQty * 2); // Min level + 2x reorder quantity
+            }
+        });
+    </script>
 }

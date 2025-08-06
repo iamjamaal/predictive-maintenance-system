@@ -1,4 +1,5 @@
 ﻿@page
+@using FEENALOoFINALE.Areas.Identity.Pages.Account
 @model RegisterModel
 @{
     ViewData["Title"] = "Register";
@@ -20,6 +21,12 @@
             </div>
 
             <div class="form-floating mb-3">
+                <input asp-for="Input.UserName" class="form-control" autocomplete="username" placeholder="johndoe" />
+                <label asp-for="Input.UserName">Username</label>
+                <span asp-validation-for="Input.UserName" class="text-danger"></span>
+            </div>
+
+            <div class="form-floating mb-3">
                 <input asp-for="Input.Password" class="form-control" autocomplete="new-password" placeholder="Password" />
                 <label asp-for="Input.Password">Password</label>
                 <span asp-validation-for="Input.Password" class="text-danger"></span>
@@ -32,25 +39,31 @@
             </div>
 
             <!-- New Fields -->
-            <div class="form-group">
-                <label asp-for="Input.FirstName"></label>
-                <input asp-for="Input.FirstName" class="form-control" />
+            <div class="form-floating mb-3">
+                <input asp-for="Input.FirstName" class="form-control" placeholder="First Name" />
+                <label asp-for="Input.FirstName">First Name</label>
                 <span asp-validation-for="Input.FirstName" class="text-danger"></span>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Input.LastName"></label>
-                <input asp-for="Input.LastName" class="form-control" />
+            <div class="form-floating mb-3">
+                <input asp-for="Input.LastName" class="form-control" placeholder="Last Name" />
+                <label asp-for="Input.LastName">Last Name</label>
                 <span asp-validation-for="Input.LastName" class="text-danger"></span>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Input.WorkerId"></label>
-                <input asp-for="Input.WorkerId" class="form-control" />
+            <div class="form-floating mb-3">
+                <input asp-for="Input.WorkerId" class="form-control" placeholder="Worker ID" />
+                <label asp-for="Input.WorkerId">Worker ID</label>
                 <span asp-validation-for="Input.WorkerId" class="text-danger"></span>
             </div>
 
-            <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            <div class="form-floating mb-3">
+                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Phone Number" />
+                <label asp-for="Input.PhoneNumber">Phone Number</label>
+                <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
+            </div>
+
+            <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary mt-3">Register</button>
         </form>
     </div>
     <div class="col-md-6 col-md-offset-2">

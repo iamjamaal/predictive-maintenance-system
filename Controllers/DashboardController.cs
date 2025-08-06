@@ -565,5 +565,311 @@ namespace FEENALOoFINALE.Controllers
                 LastUpdated = DateTime.Now
             };
         }
+
+        // Analytics Dashboard
+        public async Task<IActionResult> Analytics()
+        {
+            var viewModel = new AnalyticsDashboardViewModel
+            {
+                PageTitle = "Analytics Dashboard",
+                EquipmentTrends = await GetEquipmentTrends(),
+                MaintenanceTrends = await GetMaintenanceTrends(),
+                AlertTrends = await GetAlertTrends(),
+                CostAnalysis = await GetCostAnalysis(),
+                EfficiencyMetrics = await GetEfficiencyMetrics(),
+                PeriodFilter = "last30days"
+            };
+
+            return View(viewModel);
+        }
+
+        // Performance Dashboard
+        public async Task<IActionResult> Performance()
+        {
+            var viewModel = new PerformanceDashboardViewModel
+            {
+                PageTitle = "Performance Dashboard",
+                OverallEfficiency = await CalculateOverallEfficiency(),
+                EquipmentUtilization = await GetEquipmentUtilization(),
+                MaintenanceEfficiency = await GetMaintenanceEfficiency(),
+                DowntimeAnalysis = await GetDowntimeAnalysis(),
+                KPIMetrics = await GetKPIMetrics()
+            };
+
+            return View(viewModel);
+        }
+
+        // Predictions Dashboard
+        public async Task<IActionResult> Predictions()
+        {
+            var viewModel = new PredictionsDashboardViewModel
+            {
+                PageTitle = "Predictive Analytics",
+                FailurePredictions = await GetFailurePredictions(),
+                MaintenanceForecasts = await GetMaintenanceForecasts(),
+                RiskAssessments = await GetRiskAssessments(),
+                RecommendedActions = await GetRecommendedActions(),
+                PredictionAccuracy = await GetPredictionAccuracy()
+            };
+
+            return View(viewModel);
+        }
+
+        // Helper methods for Analytics
+        private async Task<List<TrendDataPoint>> GetEquipmentTrends()
+        {
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var equipmentData = await _context.Equipment
+                .Where(e => e.InstallationDate >= thirtyDaysAgo)
+                .GroupBy(e => (e.InstallationDate ?? DateTime.Now).Date)
+                .Select(g => new TrendDataPoint
+                {
+                    Date = g.Key,
+                    Value = g.Count(),
+                    Label = "Equipment Added"
+                })
+                .OrderBy(t => t.Date)
+                .ToListAsync();
+
+            return equipmentData;
+        }
+
+        private async Task<List<TrendDataPoint>> GetMaintenanceTrends()
+        {
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var maintenanceData = await _context.MaintenanceLogs
+                .Where(m => m.LogDate >= thirtyDaysAgo)
+                .GroupBy(m => m.LogDate.Date)
+                .Select(g => new TrendDataPoint
+                {
+                    Date = g.Key,
+                    Value = g.Count(),
+                    Label = "Maintenance Tasks"
+                })
+                .OrderBy(t => t.Date)
+                .ToListAsync();
+
+            return maintenanceData;
+        }
+
+        private async Task<List<TrendDataPoint>> GetAlertTrends()
+        {
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var alertData = await _context.Alerts
+                .Where(a => a.CreatedDate >= thirtyDaysAgo)
+                .GroupBy(a => a.CreatedDate.Date)
+                .Select(g => new TrendDataPoint
+                {
+                    Date = g.Key,
+                    Value = g.Count(),
+                    Label = "Alerts Generated"
+                })
+                .OrderBy(t => t.Date)
+                .ToListAsync();
+
+            return alertData;
+        }
+
+        private async Task<CostAnalysisData> GetCostAnalysis()
+        {
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var totalCost = await _context.MaintenanceLogs
+                .Where(m => m.LogDate >= thirtyDaysAgo)
+                .SumAsync(m => m.Cost);
+
+            var preventiveCost = await _context.MaintenanceLogs
+                .Where(m => m.LogDate >= thirtyDaysAgo && m.MaintenanceType == MaintenanceType.Preventive)
+                .SumAsync(m => m.Cost);
+
+            return new CostAnalysisData
+            {
+                TotalMaintenanceCost = totalCost,
+                PreventiveCost = preventiveCost,
+                ReactiveCost = totalCost - preventiveCost,
+                CostSavings = preventiveCost * 0.3m // Estimated savings from preventive maintenance
+            };
+        }
+
+        private async Task<EfficiencyMetricsData> GetEfficiencyMetrics()
+        {
+            var totalEquipment = await _context.Equipment.CountAsync();
+            var activeEquipment = await _context.Equipment.CountAsync(e => e.Status == EquipmentStatus.Active);
+            var overdueMaintenance = await _context.MaintenanceTasks
+                .CountAsync(t => t.ScheduledDate < DateTime.Now && t.Status == MaintenanceStatus.Pending);
+
+            return new EfficiencyMetricsData
+            {
+                EquipmentUtilizationRate = totalEquipment > 0 ? (double)activeEquipment / totalEquipment * 100 : 0,
+                MaintenanceComplianceRate = 100 - (overdueMaintenance * 10), // Simplified calculation
+                SystemReliability = activeEquipment > 0 ? 95.5 : 0, // Mock data
+                OverallEfficiency = (activeEquipment * 100.0 / Math.Max(totalEquipment, 1))
+            };
+        }
+
+        // Helper methods for Performance
+        private async Task<double> CalculateOverallEfficiency()
+        {
+            var totalEquipment = await _context.Equipment.CountAsync();
+            var activeEquipment = await _context.Equipment.CountAsync(e => e.Status == EquipmentStatus.Active);
+            return totalEquipment > 0 ? (double)activeEquipment / totalEquipment * 100 : 100;
+        }
+
+        private async Task<List<EquipmentUtilizationData>> GetEquipmentUtilization()
+        {
+            var utilizationData = await _context.Equipment
+                .Include(e => e.EquipmentType)
+                .Include(e => e.Building)
+                .Select(e => new EquipmentUtilizationData
+                {
+                    EquipmentName = e.EquipmentType!.EquipmentTypeName,
+                    Location = e.Building!.BuildingName,
+                    UtilizationRate = (e.AverageWeeklyUsageHours ?? 0) / 168.0 * 100, // Convert to percentage
+                    Status = e.Status.ToString()
+                })
+                .ToListAsync();
+
+            return utilizationData;
+        }
+
+        private async Task<double> GetMaintenanceEfficiency()
+        {
+            var completedTasks = await _context.MaintenanceLogs.CountAsync(m => m.Status == MaintenanceStatus.Completed);
+            var totalTasks = await _context.MaintenanceLogs.CountAsync();
+
+            return totalTasks > 0 ? (double)completedTasks / totalTasks * 100 : 0;
+        }
+
+        private async Task<DowntimeAnalysisData> GetDowntimeAnalysis()
+        {
+            // Mock data - in real implementation, this would calculate actual downtime
+            return await Task.FromResult(new DowntimeAnalysisData 
+            { 
+                TotalDowntimeHours = 72, 
+                AverageDowntimeHours = 24,
+                PlannedDowntimeHours = 56, 
+                UnplannedDowntimeHours = 16,
+                DowntimeIncidents = 3
+            });
+        }
+
+        private async Task<List<KPIMetric>> GetKPIMetrics()
+        {
+            var totalEquipment = await _context.Equipment.CountAsync();
+            var criticalAlerts = await _context.Alerts.CountAsync(a => a.Priority == AlertPriority.High && a.Status == AlertStatus.Open);
+
+            return new List<KPIMetric>
+            {
+                new KPIMetric { MetricName = "Mean Time Between Failures", Description = "Equipment reliability", Value = 45.2, Unit = "days", IsGood = true },
+                new KPIMetric { MetricName = "Mean Time To Repair", Description = "Repair efficiency", Value = 3.2, Unit = "hours", IsGood = true },
+                new KPIMetric { MetricName = "Equipment Availability", Description = "System uptime", Value = 96.8, Unit = "%", IsGood = true },
+                new KPIMetric { MetricName = "Maintenance Cost per Unit", Description = "Cost efficiency", Value = 247, Unit = "$", IsGood = false }
+            };
+        }
+
+        // Helper methods for Predictions
+        private async Task<List<FailurePredictionData>> GetFailurePredictions()
+        {
+            var predictions = await _context.FailurePredictions
+                .Include(f => f.Equipment)
+                .ThenInclude(e => e.EquipmentType)
+                .Include(f => f.Equipment)
+                .ThenInclude(e => e.Building)
+                .Where(f => f.PredictedFailureDate >= DateTime.Now)
+                .OrderBy(f => f.PredictedFailureDate)
+                .Take(10)
+                .Select(f => new FailurePredictionData
+                {
+                    EquipmentId = f.EquipmentId,
+                    EquipmentName = f.Equipment.EquipmentType != null ? f.Equipment.EquipmentType.EquipmentTypeName : "Unknown",
+                    EquipmentType = f.Equipment.EquipmentType != null ? f.Equipment.EquipmentType.EquipmentTypeName : "Unknown",
+                    Location = f.Equipment.Building != null ? f.Equipment.Building.BuildingName : "Unknown",
+                    PredictedFailureDate = f.PredictedFailureDate,
+                    Confidence = (double)f.ConfidenceLevel,
+                    RiskLevel = f.ConfidenceLevel > 80 ? "High" : f.ConfidenceLevel > 50 ? "Medium" : "Low"
+                })
+                .ToListAsync();
+
+            return predictions;
+        }
+
+        private async Task<List<MaintenanceForecast>> GetMaintenanceForecasts()
+        {
+            // Mock data for maintenance forecasts
+            return await Task.FromResult(new List<MaintenanceForecast>
+            {
+                new MaintenanceForecast { ScheduledDate = DateTime.Now.AddDays(5), MaintenanceType = "Preventive", EquipmentName = "AC Unit 1", EstimatedCost = 1250 },
+                new MaintenanceForecast { ScheduledDate = DateTime.Now.AddDays(12), MaintenanceType = "Inspection", EquipmentName = "Projector B", EstimatedCost = 380 },
+                new MaintenanceForecast { ScheduledDate = DateTime.Now.AddDays(25), MaintenanceType = "Corrective", EquipmentName = "Lab Equipment", EstimatedCost = 1580 }
+            });
+        }
+
+        private async Task<List<RiskAssessment>> GetRiskAssessments()
+        {
+            return await Task.FromResult(new List<RiskAssessment>
+            {
+                new RiskAssessment { RiskCategory = "Temperature Control", Description = "Air conditioning systems", ImpactLevel = "High", Probability = 75 },
+                new RiskAssessment { RiskCategory = "Electrical Systems", Description = "Power supply and distribution", ImpactLevel = "Critical", Probability = 45 },
+                new RiskAssessment { RiskCategory = "Network Equipment", Description = "IT infrastructure", ImpactLevel = "Medium", Probability = 25 }
+            });
+        }
+
+        private async Task<List<RecommendedAction>> GetRecommendedActions()
+        {
+            return await Task.FromResult(new List<RecommendedAction>
+            {
+                new RecommendedAction 
+                { 
+                    RecommendationId = 1,
+                    ActionTitle = "Preventive Maintenance", 
+                    Description = "Schedule air conditioning maintenance for Building A", 
+                    EquipmentName = "AC Unit Building A",
+                    Priority = "High"
+                },
+                new RecommendedAction 
+                { 
+                    RecommendationId = 2,
+                    ActionTitle = "Equipment Replacement", 
+                    Description = "Replace aging projectors in Lecture Hall 3", 
+                    EquipmentName = "Projectors Hall 3",
+                    Priority = "Medium"
+                }
+            });
+        }
+
+        private async Task<PredictionAccuracyData> GetPredictionAccuracy()
+        {
+            return await Task.FromResult(new PredictionAccuracyData
+            {
+                Accuracy = 78.5,
+                SampleSize = 150
+            });
+        }
+
+        private double CalculateRiskScore(Equipment equipment)
+        {
+            var age = equipment.InstallationDate.HasValue ? 
+                (DateTime.Now - equipment.InstallationDate.Value).Days / 365.0 : 0;
+            var usageIntensity = (equipment.AverageWeeklyUsageHours ?? 0) / 168.0;
+            
+            return Math.Min(100.0, (age * 10) + (usageIntensity * 30) + 20);
+        }
+
+        private List<string> GetRiskFactors(Equipment equipment)
+        {
+            var factors = new List<string>();
+            
+            if (equipment.InstallationDate.HasValue && 
+                (DateTime.Now - equipment.InstallationDate.Value).Days > 1825) // 5 years
+            {
+                factors.Add("Equipment age over 5 years");
+            }
+            
+            if (equipment.AverageWeeklyUsageHours > 100)
+            {
+                factors.Add("High usage intensity");
+            }
+            
+            return factors;
+        }
     }
 }

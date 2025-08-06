@@ -4,89 +4,404 @@
     ViewData["Title"] = "Inventory Item Details";
 }
 
-<h1>Inventory Item Details</h1>
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Inventory</a></li>
+                    <li class="breadcrumb-item active">@Model.Name</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">@Model.Name</h1>
+                    <p class="text-muted mb-0">Inventory Item Details</p>
+                </div>
+                <div>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                    <a href="@Url.Action("Edit", new { id = Model.ItemId })" class="btn btn-warning">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a href="@Url.Action("AddStock", new { id = Model.ItemId })" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Add Stock
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div>
-    <dl class="row">
-        <dt class="col-sm-2">Name</dt>
-        <dd class="col-sm-10">@Model.Name</dd>
-        <dt class="col-sm-2">Category</dt>
-        <dd class="col-sm-10">@Model.Category</dd>
-        <dt class="col-sm-2">Description</dt>
-        <dd class="col-sm-10">@Model.Description</dd>
-        <dt class="col-sm-2">Minimum Stock Level</dt>
-        <dd class="col-sm-10">@Model.MinimumStockLevel</dd>
-        <!-- Add other fields as needed -->
-    </dl>
-</div>
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-md-8">
+            <!-- Basic Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Item Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Name:</dt>
+                                <dd class="col-sm-8">@Model.Name</dd>
+                                <dt class="col-sm-4">Category:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-primary">@Model.Category</span>
+                                </dd>
+                                <dt class="col-sm-4">Item ID:</dt>
+                                <dd class="col-sm-8"><code>@Model.ItemId</code></dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            @if (!string.IsNullOrEmpty(Model.Description))
+                            {
+                                <dl class="row">
+                                    <dt class="col-sm-4">Description:</dt>
+                                    <dd class="col-sm-8">@Model.Description</dd>
+                                </dl>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.CompatibleModels))
+                            {
+                                <dl class="row">
+                                    <dt class="col-sm-4">Compatible Models:</dt>
+                                    <dd class="col-sm-8">
+                                        <small class="text-muted">@Model.CompatibleModels</small>
+                                    </dd>
+                                </dl>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<div class="card">
-    <div class="card-body">
-        <h6 class="mt-4">Stock History</h6>
-        @if (Model.InventoryStocks != null && Model.InventoryStocks.Any())
-        {
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Date Received</th>
-                        <th>Quantity</th>
-                        <th>Unit Cost</th>
-                        <th>Batch Number</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var stock in Model.InventoryStocks.OrderByDescending(s => s.DateReceived))
+            <!-- Stock Management Settings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="bi bi-sliders me-2"></i>Stock Management Settings</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-primary">@Model.MinimumStockLevel</h5>
+                                <small class="text-muted">Minimum Level</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-info">@Model.MaxStockLevel</h5>
+                                <small class="text-muted">Maximum Level</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-warning">@Model.ReorderPoint</h5>
+                                <small class="text-muted">Reorder Point</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-success">@Model.ReorderQuantity</h5>
+                                <small class="text-muted">Reorder Quantity</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock History -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0"><i class="bi bi-clock-history me-2"></i>Stock History</h6>
+                    <button class="btn btn-outline-primary btn-sm" onclick="exportStockHistory()">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (Model.InventoryStocks != null && Model.InventoryStocks.Any())
                     {
-                        <tr>
-                            <td>@stock.DateReceived.ToShortDateString()</td>
-                            <td>@stock.Quantity</td>
-                            <td>@stock.UnitCost.ToString("C")</td>
-                            <td>@stock.BatchNumber</td>
-                        </tr>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date Received</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Cost</th>
+                                        <th>Total Value</th>
+                                        <th>Batch Number</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var stock in Model.InventoryStocks.OrderByDescending(s => s.DateReceived))
+                                    {
+                                        var totalValue = stock.Quantity * stock.UnitCost;
+                                        <tr>
+                                            <td>@stock.DateReceived.ToString("MMM dd, yyyy")</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">@stock.Quantity</span>
+                                            </td>
+                                            <td>@stock.UnitCost.ToString("C")</td>
+                                            <td>@totalValue.ToString("C")</td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(stock.BatchNumber))
+                                                {
+                                                    <code>@stock.BatchNumber</code>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">N/A</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-success">Received</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <p>No stock history available.</p>
-        }
-
-        @if (Model.MaintenanceInventoryLinks != null && Model.MaintenanceInventoryLinks.Any())
-        {
-            <h6 class="mt-4">Usage History</h6>
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Equipment</th>
-                        <th>Quantity Used</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var usage in Model.MaintenanceInventoryLinks)
+                    else
                     {
-                        if (usage.MaintenanceLog != null) // Check if MaintenanceLog is not null
-                        {
-                            <tr>
-                                <td>@usage.MaintenanceLog.LogDate.ToShortDateString()</td>
-                                <td>@(usage.MaintenanceLog.Equipment?.EquipmentType?.EquipmentTypeName ?? "N/A")</td> <!-- Null-conditional operator for Equipment and coalescing for Name -->
-                                <td>@usage.QuantityUsed</td>
-                            </tr>
+                        <div class="text-center py-4">
+                            <i class="bi bi-inbox display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No stock history available.</p>
+                            <a href="@Url.Action("AddStock", new { id = Model.ItemId })" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Add First Stock Entry
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Usage History -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0"><i class="bi bi-arrow-down-circle me-2"></i>Usage History</h6>
+                    <button class="btn btn-outline-primary btn-sm" onclick="exportUsageHistory()">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (Model.MaintenanceInventoryLinks != null && Model.MaintenanceInventoryLinks.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Equipment</th>
+                                        <th>Maintenance Type</th>
+                                        <th>Quantity Used</th>
+                                        <th>Technician</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var usage in Model.MaintenanceInventoryLinks.Where(u => u.MaintenanceLog != null).OrderByDescending(u => u.MaintenanceLog!.LogDate))
+                                    {
+                                        <tr>
+                                            <td>@usage.MaintenanceLog!.LogDate.ToString("MMM dd, yyyy")</td>
+                                            <td>
+                                                @if (usage.MaintenanceLog.Equipment?.EquipmentType != null)
+                                                {
+                                                    <div>
+                                                        <strong>@usage.MaintenanceLog.Equipment.EquipmentType.EquipmentTypeName</strong>
+                                                        @if (usage.MaintenanceLog.Equipment.EquipmentModel != null)
+                                                        {
+                                                            <br><small class="text-muted">@usage.MaintenanceLog.Equipment.EquipmentModel.ModelName</small>
+                                                        }
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">N/A</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">@usage.MaintenanceLog.MaintenanceType</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning text-dark">@usage.QuantityUsed</span>
+                                            </td>
+                                            <td>@(usage.MaintenanceLog.Technician ?? "N/A")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-graph-down display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No usage history available.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Current Stock Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Current Stock Status</h6>
+                </div>
+                <div class="card-body text-center">
+                    @{
+                        var currentStock = Model.InventoryStocks?.Sum(s => s.Quantity) ?? 0;
+                        var stockStatus = currentStock == 0 ? "Out of Stock" :
+                                         currentStock < Model.MinimumStockLevel ? "Low Stock" :
+                                         currentStock <= Model.ReorderPoint ? "Reorder Soon" : "Well Stocked";
+                        var statusClass = currentStock == 0 ? "text-danger" :
+                                         currentStock < Model.MinimumStockLevel ? "text-warning" :
+                                         currentStock <= Model.ReorderPoint ? "text-info" : "text-success";
+                        var statusIcon = currentStock == 0 ? "bi-x-circle" :
+                                        currentStock < Model.MinimumStockLevel ? "bi-exclamation-triangle" :
+                                        currentStock <= Model.ReorderPoint ? "bi-info-circle" : "bi-check-circle";
+                    }
+                    
+                    <div class="mb-3">
+                        <i class="@statusIcon @statusClass display-4"></i>
+                    </div>
+                    <h2 class="@statusClass mb-1">@currentStock</h2>
+                    <p class="text-muted mb-3">Units Available</p>
+                    <span class="badge @(currentStock == 0 ? "bg-danger" : currentStock < Model.MinimumStockLevel ? "bg-warning text-dark" : currentStock <= Model.ReorderPoint ? "bg-info" : "bg-success")">
+                        @stockStatus
+                    </span>
+                    
+                    @if (Model.MaxStockLevel > 0)
+                    {
+                        <div class="mt-3">
+                            <div class="progress">
+                                @{
+                                    var progressPercentage = (double)currentStock / Model.MaxStockLevel * 100;
+                                    var progressClass = currentStock == 0 ? "bg-danger" :
+                                                       currentStock < Model.MinimumStockLevel ? "bg-warning" :
+                                                       currentStock <= Model.ReorderPoint ? "bg-info" : "bg-success";
+                                }
+                                <div class="progress-bar @progressClass" style="width: @(Math.Min(progressPercentage, 100))%"></div>
+                            </div>
+                            <small class="text-muted mt-1 d-block">@(progressPercentage.ToString("F1"))% of maximum capacity</small>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="@Url.Action("AddStock", new { id = Model.ItemId })" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Add Stock
+                        </a>
+                        <a href="@Url.Action("Edit", new { id = Model.ItemId })" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Edit Item
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="generateReport()">
+                            <i class="bi bi-file-earmark-text"></i> Generate Report
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="createAlert()">
+                            <i class="bi bi-bell"></i> Set Custom Alert
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Summary -->
+            @if (Model.InventoryStocks != null && Model.InventoryStocks.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-currency-dollar me-2"></i>Financial Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        @{
+                            var totalValue = Model.InventoryStocks.Sum(s => s.Quantity * s.UnitCost);
+                            var averageCost = Model.InventoryStocks.Average(s => s.UnitCost);
+                            var lastCost = Model.InventoryStocks.OrderByDescending(s => s.DateReceived).FirstOrDefault()?.UnitCost ?? 0;
                         }
-                    }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <p>No usage history available.</p>
-        }
+                        <div class="row text-center">
+                            <div class="col-12 mb-2">
+                                <h5 class="text-success mb-0">@totalValue.ToString("C")</h5>
+                                <small class="text-muted">Total Value</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Average Cost:</span>
+                                <span>@averageCost.ToString("C")</span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span>Last Cost:</span>
+                                <span>@lastCost.ToString("C")</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Alerts -->
+            @if (Model.Alerts != null && Model.Alerts.Any())
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-bell me-2"></i>Active Alerts</h6>
+                    </div>
+                    <div class="card-body">
+                        @foreach (var alert in Model.Alerts.Take(3))
+                        {
+                            <div class="alert alert-sm alert-warning" role="alert">
+                                <small>
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    @alert.Title
+                                </small>
+                            </div>
+                        }
+                        @if (Model.Alerts.Count() > 3)
+                        {
+                            <a href="#" class="btn btn-outline-primary btn-sm">View All Alerts</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
-<div class="mt-3">
-    <a asp-action="Edit" asp-route-id="@Model.ItemId" class="btn btn-warning">Edit</a>
-    <a asp-action="AddStock" asp-route-id="@Model.ItemId" class="btn btn-success">Add Stock</a>
-    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
-</div>
+@section Scripts {
+    <script>
+        function exportStockHistory() {
+            // TODO: Implement stock history export
+            alert('Stock history export functionality would be implemented here');
+        }
+
+        function exportUsageHistory() {
+            // TODO: Implement usage history export
+            alert('Usage history export functionality would be implemented here');
+        }
+
+        function generateReport() {
+            // TODO: Implement report generation
+            alert('Report generation functionality would be implemented here');
+        }
+
+        function createAlert() {
+            // TODO: Implement custom alert creation
+            alert('Custom alert creation functionality would be implemented here');
+        }
+    </script>
+}

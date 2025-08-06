@@ -48,7 +48,8 @@ namespace FEENALOoFINALE.Models
 
         [Phone]
         [Display(Name = "Contact Number")]
-        public string? ContactNumber { get; set; }
+        [Required(ErrorMessage = "Phone number is required")]
+        public string? PhoneNumber { get; set; }
 
         [Required]
         [Display(Name = "I agree to the Terms and Conditions")]

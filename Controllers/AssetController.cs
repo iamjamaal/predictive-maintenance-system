@@ -62,46 +62,66 @@ namespace FEENALOoFINALE.Controllers
         // Equipment Management - List all equipment
         public async Task<IActionResult> Equipment()
         {
-            var equipment = await _context.Equipment
-                .Include(e => e.EquipmentModel)
-                .Include(e => e.EquipmentType)
-                .Include(e => e.Building)
-                .Include(e => e.Room)
-                .ToListAsync();
-
-            var viewModel = equipment.Select(e => new UnifiedAssetViewModel
+            try
             {
-                Id = e.EquipmentId,
-                Name = e.EquipmentModel?.ModelName ?? "Unknown Model",
-                Type = "Equipment",
-                Category = e.EquipmentType?.EquipmentTypeName ?? "Unknown Type",
-                Status = e.Status.ToString(),
-                Location = $"{e.Building?.BuildingName} - {e.Room?.RoomName}",
-                Details = $"Installed: {e.InstallationDate:yyyy-MM-dd}",
-                LastUpdated = e.InstallationDate
-            }).ToList();
+                var equipment = await _context.Equipment
+                    .Include(e => e.EquipmentModel)
+                    .Include(e => e.EquipmentType)
+                    .Include(e => e.Building)
+                    .Include(e => e.Room)
+                    .ToListAsync();
 
-            return View("EquipmentNew", viewModel);
+                var viewModel = equipment.Select(e => new UnifiedAssetViewModel
+                {
+                    Id = e.EquipmentId,
+                    Name = e.EquipmentModel?.ModelName ?? "Unknown Model",
+                    Type = "Equipment",
+                    Category = e.EquipmentType?.EquipmentTypeName ?? "Unknown Type",
+                    Status = e.Status.ToString(),
+                    Location = $"{e.Building?.BuildingName} - {e.Room?.RoomName}",
+                    Details = $"Installed: {e.InstallationDate:yyyy-MM-dd}",
+                    LastUpdated = e.InstallationDate
+                }).ToList();
+
+                // Always return a list, even if empty
+                return View("EquipmentNew", viewModel ?? new List<UnifiedAssetViewModel>());
+            }
+            catch (Exception ex)
+            {
+                // Return empty list and error message if something goes wrong
+                ViewBag.ErrorMessage = "Unable to load equipment. " + ex.Message;
+                return View("EquipmentNew", new List<UnifiedAssetViewModel>());
+            }
         }
 
         // Inventory Management - List all inventory items
         public async Task<IActionResult> Inventory()
         {
-            var inventory = await _context.InventoryItems
-                .Include(i => i.InventoryStocks)
-                .ToListAsync();
-
-            var viewModel = inventory.Select(i => new UnifiedAssetViewModel
+            try
             {
-                Id = i.ItemId,
-                Name = i.Name,
-                Type = "Inventory",
-                Category = i.Category.ToString(),
-                Status = GetInventoryStatus(i),
-                Location = "Warehouse"
-            }).ToList();
+                var inventory = await _context.InventoryItems
+                    .Include(i => i.InventoryStocks)
+                    .ToListAsync();
 
-            return View("InventoryNew", viewModel);
+                var viewModel = inventory.Select(i => new UnifiedAssetViewModel
+                {
+                    Id = i.ItemId,
+                    Name = i.Name,
+                    Type = "Inventory",
+                    Category = i.Category.ToString(),
+                    Status = GetInventoryStatus(i),
+                    Location = "Warehouse"
+                }).ToList();
+
+                // Always return a list, even if empty
+                return View("InventoryNew", viewModel ?? new List<UnifiedAssetViewModel>());
+            }
+            catch (Exception ex)
+            {
+                // Return empty list and error message if something goes wrong
+                ViewBag.ErrorMessage = "Unable to load inventory. " + ex.Message;
+                return View("InventoryNew", new List<UnifiedAssetViewModel>());
+            }
         }
 
         // Helper method to get recent unified assets (Equipment + Inventory)

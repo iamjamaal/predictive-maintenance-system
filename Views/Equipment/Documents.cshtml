@@ -1,0 +1,338 @@
+@using FEENALOoFINALE.Models
+@model List<FEENALOoFINALE.Models.ManufacturerDocument>
+
+@{
+    ViewData["Title"] = "Manufacturer Documents";
+    var equipmentId = ViewBag.EquipmentId as int?;
+    var equipmentName = ViewBag.EquipmentName as string ?? "Unknown Equipment";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="display-6 mb-2">Manufacturer Documents</h1>
+        <p class="text-muted">Documents for: <strong>@equipmentName</strong></p>
+    </div>
+    <div>
+        <button type="button" class="btn btn-primary btn-lg me-2" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
+            <i class="bi bi-upload me-2"></i>Upload Document
+        </button>
+        <a asp-controller="Equipment" asp-action="Details" asp-route-id="@equipmentId" class="btn btn-secondary btn-lg">
+            <i class="bi bi-arrow-left me-2"></i>Back to Equipment
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-12">
+        @if (Model.Any())
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-files me-2"></i>Uploaded Documents (@Model.Count)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Document Name</th>
+                                    <th>Type</th>
+                                    <th>File Size</th>
+                                    <th>Upload Date</th>
+                                    <th>Status</th>
+                                    <th>Recommendations</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>
+                                            <strong>@doc.FileName</strong>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(doc.DocumentType))
+                                            {
+                                                <span class="badge bg-secondary">@doc.DocumentType</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Not specified</span>
+                                            }
+                                        </td>
+                                        <td>@((doc.FileSize / 1024.0 / 1024.0).ToString("F1")) MB</td>
+                                        <td>@doc.UploadDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                        <td>
+                                            @if (doc.IsProcessed)
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle me-1"></i>Processed
+                                                </span>
+                                                @if (doc.ProcessedDate.HasValue)
+                                                {
+                                                    <small class="text-muted d-block">@doc.ProcessedDate.Value.ToString("MMM dd, yyyy")</small>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-clock me-1"></i>Pending
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (doc.MaintenanceRecommendations?.Any() == true)
+                                            {
+                                                <span class="badge bg-info">
+                                                    @doc.MaintenanceRecommendations.Count() recommendations
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">None</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="@Url.Content($"~/{doc.FilePath}")" target="_blank" class="btn btn-outline-primary" title="View Document">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                @if (!doc.IsProcessed)
+                                                {
+                                                    <button type="button" class="btn btn-outline-success process-document" data-document-id="@doc.DocumentId" title="Process Document">
+                                                        <i class="bi bi-gear"></i>
+                                                    </button>
+                                                }
+                                                @if (doc.MaintenanceRecommendations?.Any() == true)
+                                                {
+                                                    <button type="button" class="btn btn-outline-info view-recommendations" data-document-id="@doc.DocumentId" title="View Recommendations">
+                                                        <i class="bi bi-list-check"></i>
+                                                    </button>
+                                                }
+                                                <button type="button" class="btn btn-outline-danger delete-document" data-document-id="@doc.DocumentId" data-document-name="@doc.FileName" title="Delete Document">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card text-center">
+                <div class="card-body py-5">
+                    <i class="bi bi-file-earmark display-1 text-muted mb-3"></i>
+                    <h4>No Documents Uploaded</h4>
+                    <p class="text-muted">Upload manufacturer documents to get automated maintenance recommendations.</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
+                        <i class="bi bi-upload me-2"></i>Upload First Document
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-labelledby="uploadDocumentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="uploadDocumentForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadDocumentModalLabel">Upload Manufacturer Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="equipmentId" value="@equipmentId" />
+                    
+                    <div class="mb-3">
+                        <label for="documentFile" class="form-label">Select Document <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" id="documentFile" name="documentFile" accept=".pdf,.doc,.docx,.txt" required>
+                        <div class="form-text">Supported formats: PDF, Word documents, Text files. Maximum size: 10MB</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="documentType" class="form-label">Document Type</label>
+                        <select class="form-control" id="documentType" name="documentType">
+                            <option value="">-- Select Type --</option>
+                            <option value="User Manual">User Manual</option>
+                            <option value="Service Manual">Service Manual</option>
+                            <option value="Installation Guide">Installation Guide</option>
+                            <option value="Maintenance Schedule">Maintenance Schedule</option>
+                            <option value="Technical Specifications">Technical Specifications</option>
+                            <option value="Safety Guidelines">Safety Guidelines</option>
+                            <option value="Troubleshooting Guide">Troubleshooting Guide</option>
+                            <option value="Parts Catalog">Parts Catalog</option>
+                            <option value="Warranty Information">Warranty Information</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="processAutomatically" name="processAutomatically" checked>
+                            <label class="form-check-label" for="processAutomatically">
+                                Process document automatically for maintenance recommendations
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-2"></i>Upload Document
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Recommendations Modal -->
+<div class="modal fade" id="recommendationsModal" tabindex="-1" aria-labelledby="recommendationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="recommendationsModalLabel">Maintenance Recommendations</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="recommendationsContent">
+                <!-- Content will be loaded via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Upload document form
+            $('#uploadDocumentForm').on('submit', function (e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const submitBtn = $(this).find('button[type="submit"]');
+                const originalText = submitBtn.html();
+                
+                submitBtn.prop('disabled', true).html('<i class="spinner-border spinner-border-sm me-2"></i>Uploading...');
+                
+                $.ajax({
+                    url: '@Url.Action("UploadDocument", "Equipment")',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                        if (response.success) {
+                            $('#uploadDocumentModal').modal('hide');
+                            location.reload();
+                        } else {
+                            alert('Error uploading document: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        alert('Error uploading document. Please try again.');
+                    },
+                    complete: function () {
+                        submitBtn.prop('disabled', false).html(originalText);
+                    }
+                });
+            });
+
+            // Process document
+            $('.process-document').on('click', function () {
+                const documentId = $(this).data('document-id');
+                const btn = $(this);
+                const originalText = btn.html();
+                
+                btn.prop('disabled', true).html('<i class="spinner-border spinner-border-sm"></i>');
+                
+                $.ajax({
+                    url: '@Url.Action("ProcessDocument", "Equipment")',
+                    type: 'POST',
+                    data: { documentId: documentId },
+                    success: function (response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('Error processing document: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        alert('Error processing document. Please try again.');
+                    },
+                    complete: function () {
+                        btn.prop('disabled', false).html(originalText);
+                    }
+                });
+            });
+
+            // View recommendations
+            $('.view-recommendations').on('click', function () {
+                const documentId = $(this).data('document-id');
+                
+                $.ajax({
+                    url: '@Url.Action("GetDocumentRecommendations", "Equipment")',
+                    type: 'GET',
+                    data: { documentId: documentId },
+                    success: function (response) {
+                        $('#recommendationsContent').html(response);
+                        $('#recommendationsModal').modal('show');
+                    },
+                    error: function () {
+                        alert('Error loading recommendations. Please try again.');
+                    }
+                });
+            });
+
+            // Delete document
+            $('.delete-document').on('click', function () {
+                const documentId = $(this).data('document-id');
+                const documentName = $(this).data('document-name');
+                
+                if (confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`)) {
+                    $.ajax({
+                        url: '@Url.Action("DeleteDocument", "Equipment")',
+                        type: 'POST',
+                        data: { documentId: documentId },
+                        success: function (response) {
+                            if (response.success) {
+                                location.reload();
+                            } else {
+                                alert('Error deleting document: ' + response.message);
+                            }
+                        },
+                        error: function () {
+                            alert('Error deleting document. Please try again.');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+}

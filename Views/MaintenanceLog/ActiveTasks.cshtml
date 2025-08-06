@@ -1,0 +1,215 @@
+@model IEnumerable<FEENALOoFINALE.Models.MaintenanceLog>
+
+@{
+    ViewData["Title"] = "Active Tasks - Logs to Complete";
+    var myTasks = Model.Where(m => m.Technician == ViewBag.CurrentUserName).ToList();
+    var otherTasks = Model.Where(m => m.Technician != ViewBag.CurrentUserName).ToList();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-clipboard-check"></i> Active Tasks - Logs to Complete</h1>
+    <div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-list"></i> All Logs
+        </a>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New Log
+        </a>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-success">
+        <h4><i class="bi bi-check-circle"></i> Great work!</h4>
+        <p>No active maintenance tasks at the moment. All maintenance work is up to date!</p>
+        <a asp-action="Index" class="btn btn-outline-primary">View All Logs</a>
+    </div>
+}
+else
+{
+    <!-- My Active Tasks -->
+    @if (myTasks.Any())
+    {
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="bi bi-person-check"></i> My Active Tasks (@myTasks.Count)</h4>
+                <small>Tasks assigned to you that need attention</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Equipment</th>
+                                <th>Started</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Description</th>
+                                <th>Related Alert</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in myTasks)
+                            {
+                                <tr class="table-primary">
+                                    <td>
+                                        @if (task.Equipment?.EquipmentModel != null && task.Equipment?.EquipmentType != null)
+                                        {
+                                            <strong>@task.Equipment.EquipmentModel.ModelName</strong><br>
+                                            <small class="text-muted">@task.Equipment.EquipmentType.EquipmentTypeName</small>
+                                        }
+                                        else if (task.Equipment != null)
+                                        {
+                                            @($"Equipment ID: {task.Equipment.EquipmentId}")
+                                        }
+                                        else
+                                        {
+                                            <em>No Equipment</em>
+                                        }
+                                    </td>
+                                    <td>
+                                        @task.LogDate.ToString("MMM dd, yyyy")<br>
+                                        <small class="text-muted">@task.LogDate.ToString("HH:mm")</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">@task.MaintenanceType</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(task.Status == FEENALOoFINALE.Models.MaintenanceStatus.InProgress ? "bg-warning" : "bg-secondary")">
+                                            @task.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @task.Description
+                                    </td>
+                                    <td>
+                                        @if (task.Alert != null)
+                                        {
+                                            <a asp-controller="Alert" asp-action="Details" asp-route-id="@task.Alert.AlertId" 
+                                               class="btn btn-outline-info btn-sm">
+                                                <i class="bi bi-exclamation-triangle"></i> View Alert
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">None</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a asp-action="Edit" asp-route-id="@task.LogId" class="btn btn-warning btn-sm">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a>
+                                            <form asp-action="MarkCompleted" method="post" style="display: inline;">
+                                                <input type="hidden" name="id" value="@task.LogId" />
+                                                <button type="submit" class="btn btn-success btn-sm" 
+                                                        onclick="return confirm('Mark this maintenance as completed?')">
+                                                    <i class="bi bi-check-circle"></i> Complete
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Other Active Tasks -->
+    @if (otherTasks.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h4><i class="bi bi-people"></i> Other Active Tasks (@otherTasks.Count)</h4>
+                <small>Tasks assigned to other technicians</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Equipment</th>
+                                <th>Started</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Technician</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in otherTasks)
+                            {
+                                <tr>
+                                    <td>
+                                        @if (task.Equipment?.EquipmentModel != null && task.Equipment?.EquipmentType != null)
+                                        {
+                                            <strong>@task.Equipment.EquipmentModel.ModelName</strong><br>
+                                            <small class="text-muted">@task.Equipment.EquipmentType.EquipmentTypeName</small>
+                                        }
+                                        else if (task.Equipment != null)
+                                        {
+                                            @($"Equipment ID: {task.Equipment.EquipmentId}")
+                                        }
+                                        else
+                                        {
+                                            <em>No Equipment</em>
+                                        }
+                                    </td>
+                                    <td>
+                                        @task.LogDate.ToString("MMM dd, yyyy")<br>
+                                        <small class="text-muted">@task.LogDate.ToString("HH:mm")</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">@task.MaintenanceType</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(task.Status == FEENALOoFINALE.Models.MaintenanceStatus.InProgress ? "bg-warning" : "bg-secondary")">
+                                            @task.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-person"></i> @task.Technician
+                                    </td>
+                                    <td>
+                                        @task.Description
+                                    </td>
+                                    <td>
+                                        <a asp-action="Details" asp-route-id="@task.LogId" class="btn btn-info btn-sm">
+                                            <i class="bi bi-eye"></i> Details
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title text-primary">@myTasks.Count</h5>
+                <p class="card-text">My Active Tasks</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title text-secondary">@otherTasks.Count</h5>
+                <p class="card-text">Other Active Tasks</p>
+            </div>
+        </div>
+    </div>
+</div>

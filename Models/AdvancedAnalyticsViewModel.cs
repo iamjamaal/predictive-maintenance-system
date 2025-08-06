@@ -147,6 +147,12 @@ namespace FEENALOoFINALE.Models
         public double CostPercentage { get; set; }
         public decimal ProjectedCost { get; set; }
         public string Trend { get; set; } = string.Empty; // "increasing", "decreasing", "stable"
+        
+        // Additional properties for dashboard analytics
+        public decimal TotalMaintenanceCost { get; set; }
+        public decimal PreventiveCost { get; set; }
+        public decimal ReactiveCost { get; set; }
+        public decimal CostSavings { get; set; }
     }
 
     // Real-Time Dashboard Update Model

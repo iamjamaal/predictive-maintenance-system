@@ -103,16 +103,6 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-semibold" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab">
-                        <i class="bi bi-gear-wide-connected me-2"></i>Equipment
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-semibold" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventory" type="button" role="tab">
-                        <i class="bi bi-boxes me-2"></i>Inventory
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
                     <button class="nav-link fw-semibold" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab">
                         <i class="bi bi-graph-up me-2"></i>Reports
                     </button>
@@ -309,58 +299,6 @@
                     </div>
                 </div>
             }
-        </div>
-
-        <!-- Equipment Tab -->
-        <div class="tab-pane fade" id="equipment" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Equipment Assets</h5>
-                <a asp-controller="Equipment" asp-action="Create" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-1"></i>Add Equipment
-                </a>
-            </div>
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-0">
-                    <div id="equipmentContent">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2 text-muted">Loading equipment...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Inventory Tab -->
-        <div class="tab-pane fade" id="inventory" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Inventory Assets</h5>
-                <div class="btn-group">
-                    <a asp-controller="Inventory" asp-action="Create" class="btn btn-info">
-                        <i class="bi bi-plus-circle me-1"></i>Add Item
-                    </a>
-                    <a asp-controller="Inventory" asp-action="Create" class="btn btn-outline-info">
-                        <i class="bi bi-gear me-1"></i>Spare Part
-                    </a>
-                    <a asp-controller="Inventory" asp-action="Create" class="btn btn-outline-info">
-                        <i class="bi bi-droplet me-1"></i>Consumable
-                    </a>
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-0">
-                    <div id="inventoryContent">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-info" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2 text-muted">Loading inventory...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Reports Tab -->

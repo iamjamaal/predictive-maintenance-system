@@ -27,6 +27,9 @@ namespace FEENALOoFINALE.Services
         {
             _logger.LogInformation("Predictive Analytics Service started");
 
+            // Wait 3 minutes before first analysis to reduce startup load
+            await Task.Delay(TimeSpan.FromMinutes(3), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -158,6 +161,27 @@ namespace FEENALOoFINALE.Services
                 riskFactors += "Critical equipment type; ";
             }
 
+            // Factor 5: Usage hours (new)
+            double avgUsage = equipment.AverageWeeklyUsageHours ?? 0;
+
+            // Optionally, use recent history for more granularity:
+            var recentUsage = await dbContext.EquipmentUsageHistories
+                .Where(u => u.EquipmentId == equipment.EquipmentId && u.WeekStart >= DateTime.Now.AddDays(-90))
+                .ToListAsync();
+
+            double recentAvgUsage = recentUsage.Any() ? recentUsage.Average(u => u.UsageHours) : avgUsage;
+
+            if (recentAvgUsage > 40) // Example: over 40 hours/week is heavy use
+            {
+                failureProbability += 0.2;
+                riskFactors += "High weekly usage; ";
+            }
+            else if (recentAvgUsage > 20)
+            {
+                failureProbability += 0.1;
+                riskFactors += "Moderate weekly usage; ";
+            }
+
             // Only create prediction if probability is significant
             if (failureProbability >= 0.3)
             {
@@ -190,6 +214,27 @@ namespace FEENALOoFINALE.Services
             }
 
             return null;
+        }
+
+        // Add this method to allow retraining/updating the model with new maintenance logs
+        public async Task UpdateModelWithMaintenanceLogAsync(MaintenanceLog log)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Gather all relevant logs and usage data for the equipment
+            var logs = await dbContext.MaintenanceLogs
+                .Where(l => l.EquipmentId == log.EquipmentId)
+                .ToListAsync();
+
+            var usage = await dbContext.EquipmentUsageHistories
+                .Where(u => u.EquipmentId == log.EquipmentId)
+                .ToListAsync();
+
+            // Call your ML retraining/update logic here
+            // e.g., MLModelTrainer.UpdateModel(logs, usage);
+
+            await Task.CompletedTask;
         }
     }
 }

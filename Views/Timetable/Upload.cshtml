@@ -1,0 +1,459 @@
+@model FEENALOoFINALE.Models.ViewModels.SemesterUploadViewModel
+@{
+    ViewData["Title"] = "Upload Semester Timetable";
+}
+
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Timetable Management</a></li>
+                    <li class="breadcrumb-item active">Upload Semester</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Upload Semester Timetable</h1>
+                    <p class="text-muted mb-0">Upload a PDF timetable to track equipment usage for the semester</p>
+                </div>
+                <div>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Error Messages -->
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Upload Error:</strong> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Upload Form -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-upload"></i> Semester Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+                        <!-- Semester Name -->
+                        <div class="mb-3">
+                            <label asp-for="SemesterName" class="form-label">
+                                <i class="bi bi-tag"></i> Semester Name <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="SemesterName" class="form-control" placeholder="e.g., Fall 2024, Spring 2025" id="semesterName" />
+                            <span asp-validation-for="SemesterName" class="text-danger"></span>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> Enter a descriptive name for this semester
+                                <span id="semesterNameSuggestion" class="text-muted"></span>
+                            </div>
+                        </div>
+
+                        <!-- Start Date and Duration -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label asp-for="StartDate" class="form-label">
+                                        <i class="bi bi-calendar-event"></i> Start Date <span class="text-danger">*</span>
+                                    </label>
+                                    <input asp-for="StartDate" type="date" class="form-control" id="startDate" />
+                                    <span asp-validation-for="StartDate" class="text-danger"></span>
+                                    <div class="form-text">
+                                        <i class="bi bi-calendar-check"></i> Select the first day of the semester
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label asp-for="NumberOfWeeks" class="form-label">
+                                        <i class="bi bi-calendar-week"></i> Number of Weeks <span class="text-danger">*</span>
+                                    </label>
+                                    <input asp-for="NumberOfWeeks" type="number" min="1" max="52" class="form-control" id="numberOfWeeks" />
+                                    <span asp-validation-for="NumberOfWeeks" class="text-danger"></span>
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i> Typical semesters are 14-16 weeks
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Duration Preview -->
+                        <div class="mb-3">
+                            <div class="alert alert-info" id="durationPreview">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Duration Preview:</strong> <span id="durationText">Please select start date and number of weeks</span>
+                                <div id="semesterTimeline" class="mt-2" style="display: none;">
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted">Semester timeline visualization</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Timetable File Upload -->
+                        <div class="mb-3">
+                            <label asp-for="TimetableFile" class="form-label">
+                                <i class="bi bi-file-pdf"></i> Timetable PDF File <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="TimetableFile" type="file" class="form-control" accept=".pdf" id="timetableFile" />
+                            <span asp-validation-for="TimetableFile" class="text-danger"></span>
+                            <div class="form-text">
+                                <i class="bi bi-exclamation-triangle text-warning"></i>
+                                Upload a PDF file containing the semester timetable. Maximum file size: 10MB.
+                                <br><i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Ensure your PDF contains room schedules in a readable format.
+                            </div>
+                        </div>
+
+                        <!-- Enhanced File Preview -->
+                        <div class="mb-3" id="filePreview" style="display: none;">
+                            <div class="alert alert-success">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-pdf text-danger me-2"></i>
+                                    <div>
+                                        <strong>Selected File:</strong> <span id="fileName"></span>
+                                        <br><small><strong>Size:</strong> <span id="fileSize"></span> | <strong>Type:</strong> <span id="fileType"></span></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Replace Current Semester Option -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input asp-for="ReplaceCurrentSemester" class="form-check-input" type="checkbox" id="replaceCurrent" />
+                                <label class="form-check-label" for="replaceCurrent">
+                                    <i class="bi bi-arrow-repeat"></i> Replace Current Active Semester
+                                </label>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> Check this if you want to replace the currently active semester with this new one.
+                                    <br><i class="bi bi-exclamation-triangle text-warning"></i> <strong>Warning:</strong> This will deactivate the current semester.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label asp-for="Notes" class="form-label">
+                                <i class="bi bi-sticky"></i> Notes (Optional)
+                            </label>
+                            <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Add any additional notes about this semester..."></textarea>
+                            <span asp-validation-for="Notes" class="text-danger"></span>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> Optional notes to help identify this semester later
+                            </div>
+                        </div>
+
+                        <!-- Upload Instructions -->
+                        <div class="alert alert-light border">
+                            <h6><i class="bi bi-lightbulb"></i> Upload Instructions:</h6>
+                            <ul class="mb-0">
+                                <li>Ensure your PDF contains room schedules in a readable format</li>
+                                <li>Room names should follow the pattern: Building + Room Number (e.g., PB001, NEB-GF)</li>
+                                <li>Time slots should be in HH:MM-HH:MM format (e.g., 09:00-11:00)</li>
+                                <li>The system will automatically extract equipment usage data from room schedules</li>
+                                <li>Processing may take a few minutes depending on file size</li>
+                                <li>You can edit semester details after upload if needed</li>
+                            </ul>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-upload"></i> Upload Semester Timetable
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Auto-dismiss alerts after 8 seconds
+            setTimeout(function() {
+                $('.alert').fadeOut('slow');
+            }, 8000);
+
+            // Real-time duration preview
+            function updateDurationPreview() {
+                const startDate = $('#startDate').val();
+                const numberOfWeeks = parseInt($('#numberOfWeeks').val()) || 0;
+                
+                if (startDate && numberOfWeeks > 0) {
+                    const start = new Date(startDate);
+                    const end = new Date(start);
+                    end.setDate(start.getDate() + (numberOfWeeks * 7));
+                    
+                    const durationText = `${numberOfWeeks} weeks (${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`;
+                    $('#durationText').text(durationText);
+                    $('#semesterTimeline').show();
+                    
+                    // Update progress bar to show semester timeline
+                    const today = new Date();
+                    const totalDays = numberOfWeeks * 7;
+                    const daysFromStart = Math.max(0, (today - start) / (1000 * 60 * 60 * 24));
+                    const progress = Math.min(100, (daysFromStart / totalDays) * 100);
+                    $('.progress-bar').css('width', progress + '%');
+                } else {
+                    $('#durationText').text('Please select start date and number of weeks');
+                    $('#semesterTimeline').hide();
+                }
+            }
+
+            // Auto-generate semester name based on current date
+            function generateSemesterName() {
+                const now = new Date();
+                const month = now.getMonth();
+                const year = now.getFullYear();
+                
+                let semesterName = '';
+                if (month >= 0 && month <= 4) {
+                    semesterName = `Spring ${year}`;
+                } else if (month >= 5 && month <= 7) {
+                    semesterName = `Summer ${year}`;
+                } else {
+                    semesterName = `Fall ${year}`;
+                }
+                
+                return semesterName;
+            }
+
+            // Initialize semester name if empty
+            if (!$('#semesterName').val()) {
+                $('#semesterName').val(generateSemesterName());
+                $('#semesterNameSuggestion').text(`(Auto-generated: ${generateSemesterName()})`);
+            }
+
+            // Event listeners
+            $('#startDate, #numberOfWeeks').on('change input', updateDurationPreview);
+            $('#startDate').on('change', function() {
+                const selectedDate = new Date($(this).val());
+                const today = new Date();
+                
+                if (selectedDate < today) {
+                    $(this).addClass('is-invalid');
+                    $('<div class="invalid-feedback">Start date cannot be in the past</div>').insertAfter($(this));
+                } else {
+                    $(this).removeClass('is-invalid');
+                    $(this).next('.invalid-feedback').remove();
+                }
+            });
+
+            // File upload preview
+            $('#timetableFile').change(function() {
+                const file = this.files[0];
+                if (file) {
+                    const fileName = file.name;
+                    const fileSize = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                    const fileType = file.type;
+                    
+                    $('#fileName').text(fileName);
+                    $('#fileSize').text(fileSize);
+                    $('#fileType').text(fileType);
+                    $('#filePreview').show();
+                    
+                    // Validate file size
+                    if (file.size > 10 * 1024 * 1024) {
+                        $('#filePreview .alert').removeClass('alert-success').addClass('alert-warning');
+                        $('#filePreview .alert').html(`
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            <strong>Large File:</strong> ${fileName} (${fileSize})
+                            <br><small class="text-warning">File size exceeds 10MB limit. Consider compressing the PDF.</small>
+                        `);
+                    } else {
+                        $('#filePreview .alert').removeClass('alert-warning').addClass('alert-success');
+                        $('#filePreview .alert').html(`
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-pdf text-danger me-2"></i>
+                                <div>
+                                    <strong>Selected File:</strong> ${fileName}
+                                    <br><small><strong>Size:</strong> ${fileSize} | <strong>Type:</strong> ${fileType}</small>
+                                </div>
+                            </div>
+                        `);
+                    }
+                } else {
+                    $('#filePreview').hide();
+                }
+            });
+
+            // Replace current semester confirmation
+            $('#replaceCurrent').change(function() {
+                if (this.checked) {
+                    if (!confirm('Are you sure you want to replace the current active semester? This will deactivate the current semester and may affect ongoing tracking.')) {
+                        this.checked = false;
+                    }
+                }
+            });
+
+            // Form submission handling with enhanced feedback and real-time monitoring
+            $('#uploadForm').submit(function(e) {
+                const submitBtn = $('#submitBtn');
+                const originalText = submitBtn.html();
+                
+                // Validate required fields
+                const semesterName = $('#semesterName').val().trim();
+                const startDate = $('#startDate').val();
+                const numberOfWeeks = $('#numberOfWeeks').val();
+                const timetableFile = $('#timetableFile').val();
+                
+                if (!semesterName || !startDate || !numberOfWeeks || !timetableFile) {
+                    alert('Please fill in all required fields and select a timetable file.');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Disable submit button and show loading state
+                submitBtn.prop('disabled', true);
+                submitBtn.html('<i class="bi bi-hourglass-split"></i> Uploading...');
+                
+                // Show processing message with progress indicator
+                const processingAlert = $('<div class="alert alert-info mt-3" id="processingAlert">' +
+                  '<div class="d-flex align-items-center">' +
+                    '<div class="spinner-border spinner-border-sm me-2" role="status"></div>' +
+                    '<div>' +
+                      '<strong>Processing:</strong> <span id="processingStatus">Uploading semester timetable...</span>' +
+                      '<div class="small text-muted mt-1" id="processingDetails">Please wait while we process your timetable file.</div>' +
+                    '</div>' +
+                  '</div>' +
+                  '</div>').insertAfter('#uploadForm');
+
+                // Start monitoring after form submission
+                startProcessingMonitor();
+            });
+
+            // Real-time processing status monitoring
+            let monitoringInterval;
+            let currentSemesterId = null;
+
+            function startProcessingMonitor() {
+                // Get semester ID from TempData after upload (if available)
+                const semesterId = '@TempData["NewSemesterId"]';
+                if (semesterId && semesterId !== '') {
+                    currentSemesterId = semesterId;
+                    monitorProcessingStatus();
+                } else {
+                    // Fallback: monitor for new processing semesters
+                    setTimeout(checkForNewProcessingSemester, 2000);
+                }
+            }
+
+            function checkForNewProcessingSemester() {
+                // This is a fallback method to find processing semesters
+                // In a real implementation, you might want to store the semester ID in sessionStorage
+                // or pass it through the response
+                console.log('Checking for new processing semester...');
+            }
+
+            function monitorProcessingStatus() {
+                if (!currentSemesterId) return;
+
+                monitoringInterval = setInterval(function() {
+                    $.ajax({
+                        url: '@Url.Action("CheckProcessingStatus")',
+                        type: 'GET',
+                        data: { semesterId: currentSemesterId },
+                        success: function(response) {
+                            updateProcessingStatus(response);
+                            
+                            // Stop monitoring if processing is complete or failed
+                            if (response.isCompleted || response.isFailed) {
+                                clearInterval(monitoringInterval);
+                                handleProcessingComplete(response);
+                            }
+                        },
+                        error: function() {
+                            console.log('Error checking processing status');
+                        }
+                    });
+                }, 3000); // Check every 3 seconds
+            }
+
+            function updateProcessingStatus(response) {
+                const statusEl = $('#processingStatus');
+                const detailsEl = $('#processingDetails');
+                const alertEl = $('#processingAlert');
+
+                if (response.isProcessing) {
+                    statusEl.text('Processing timetable file...');
+                    detailsEl.text(response.message || 'Extracting and analyzing timetable data.');
+                    alertEl.removeClass('alert-success alert-danger').addClass('alert-info');
+                } else if (response.isCompleted) {
+                    statusEl.text('Processing completed successfully!');
+                    detailsEl.text(response.message || 'Timetable has been processed and equipment data extracted.');
+                    alertEl.removeClass('alert-info alert-danger').addClass('alert-success');
+                    alertEl.find('.spinner-border').removeClass('spinner-border').addClass('bi bi-check-circle');
+                } else if (response.isFailed) {
+                    statusEl.text('Processing failed.');
+                    detailsEl.text(response.message || 'An error occurred while processing the timetable.');
+                    alertEl.removeClass('alert-info alert-success').addClass('alert-danger');
+                    alertEl.find('.spinner-border').removeClass('spinner-border').addClass('bi bi-exclamation-triangle');
+                }
+            }
+
+            function handleProcessingComplete(response) {
+                const submitBtn = $('#submitBtn');
+                
+                // Re-enable submit button
+                submitBtn.prop('disabled', false);
+                submitBtn.html('<i class="bi bi-upload"></i> Upload Timetable');
+
+                if (response.isCompleted) {
+                    // Add redirect button to view semester details
+                    const redirectBtn = $('<a href="@Url.Action("Details")?id=' + response.semesterId + '" class="btn btn-success ms-2">' +
+                        '<i class="bi bi-eye"></i> View Semester Details</a>');
+                    $('#processingAlert').append('<hr><div class="d-flex justify-content-end">' + redirectBtn[0].outerHTML + '</div>');
+                } else if (response.isFailed) {
+                    // Add retry option
+                    const retryText = '<hr><div class="text-end">' +
+                        '<small class="text-muted">You can try uploading the file again or contact support if the problem persists.</small>' +
+                        '</div>';
+                    $('#processingAlert').append(retryText);
+                }
+            }
+
+            // Clean up monitoring when leaving the page
+            $(window).on('beforeunload', function() {
+                if (monitoringInterval) {
+                    clearInterval(monitoringInterval);
+                }
+            });
+
+            // Initialize duration preview
+            updateDurationPreview();
+        });
+    </script>
+
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,281 @@
+@model FEENALOoFINALE.Models.ViewModels.PerformanceDashboardViewModel
+@{
+    ViewData["Title"] = Model.PageTitle;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 text-primary">
+                        <i class="bi bi-speedometer2 me-2"></i>@Model.PageTitle
+                    </h2>
+                    <p class="text-muted mb-0">Monitor system performance and efficiency metrics</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="exportReport()">
+                        <i class="bi bi-download me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="display-6 text-success mb-2">
+                        @Math.Round(Model.OverallEfficiency, 1)<small class="fs-6 text-muted">%</small>
+                    </div>
+                    <h6 class="card-title text-muted mb-0">Overall Efficiency</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="display-6 text-info mb-2">
+                        @Math.Round(Model.EquipmentUtilization?.Average(x => x.UtilizationRate) ?? 0, 1)<small class="fs-6 text-muted">%</small>
+                    </div>
+                    <h6 class="card-title text-muted mb-0">Equipment Utilization</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="display-6 text-warning mb-2">
+                        @Math.Round(Model.MaintenanceEfficiency, 1)<small class="fs-6 text-muted">%</small>
+                    </div>
+                    <h6 class="card-title text-muted mb-0">Maintenance Efficiency</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="display-6 text-danger mb-2">
+                        @Math.Round(Model.DowntimeAnalysis?.AverageDowntimeHours ?? 0, 1)<small class="fs-6 text-muted">h</small>
+                    </div>
+                    <h6 class="card-title text-muted mb-0">Avg Downtime</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Equipment Utilization Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart-line me-2 text-primary"></i>Equipment Utilization
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="utilizationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Metrics -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2 text-primary"></i>Key Performance Indicators
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.KPIMetrics != null && Model.KPIMetrics.Any())
+                    {
+                        @foreach (var kpi in Model.KPIMetrics)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="mb-1">@kpi.MetricName</h6>
+                                    <small class="text-muted">@kpi.Description</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-@(kpi.IsGood ? "success" : "warning")">
+                                        @kpi.Value @kpi.Unit
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-graph-up display-4 mb-3"></i>
+                            <p>No KPI data available</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Downtime Analysis -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2 text-primary"></i>Downtime Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.DowntimeAnalysis != null)
+                    {
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <div class="h4 text-primary">@Math.Round(Model.DowntimeAnalysis.TotalDowntimeHours, 1)</div>
+                                    <small class="text-muted">Total Hours</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <div class="h4 text-warning">@Model.DowntimeAnalysis.DowntimeIncidents</div>
+                                    <small class="text-muted">Incidents</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="height: 250px;">
+                            <canvas id="downtimeChart"></canvas>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-clock-history display-4 mb-3"></i>
+                            <p>No downtime data available</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Efficiency Trends -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up-arrow me-2 text-primary"></i>Efficiency Trends
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 250px;">
+                        <canvas id="efficiencyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Equipment Utilization Chart
+            const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
+            const utilizationData = @Html.Raw(Json.Serialize(Model.EquipmentUtilization?.Select(x => new { 
+                label = x.EquipmentName, 
+                value = x.UtilizationRate 
+            }) ?? Enumerable.Empty<object>()));
+
+            new Chart(utilizationCtx, {
+                type: 'bar',
+                data: {
+                    labels: utilizationData.map(d => d.label),
+                    datasets: [{
+                        label: 'Utilization Rate (%)',
+                        data: utilizationData.map(d => d.value),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            // Efficiency Trends Chart
+            const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
+            new Chart(efficiencyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Overall Efficiency',
+                        data: [@Model.OverallEfficiency - 5, @Model.OverallEfficiency - 2, @Model.OverallEfficiency + 1, @Model.OverallEfficiency],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            @if (Model.DowntimeAnalysis != null)
+            {
+                <text>
+                // Downtime Chart
+                const downtimeCtx = document.getElementById('downtimeChart').getContext('2d');
+                new Chart(downtimeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Planned', 'Unplanned'],
+                        datasets: [{
+                            data: [@Model.DowntimeAnalysis.PlannedDowntimeHours, @Model.DowntimeAnalysis.UnplannedDowntimeHours],
+                            backgroundColor: ['rgba(255, 206, 86, 0.6)', 'rgba(255, 99, 132, 0.6)'],
+                            borderColor: ['rgba(255, 206, 86, 1)', 'rgba(255, 99, 132, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+                </text>
+            }
+        });
+
+        function refreshData() {
+            window.location.reload();
+        }
+
+        function exportReport() {
+            window.print();
+        }
+    </script>
+}

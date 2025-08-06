@@ -23,15 +23,15 @@ namespace FEENALOoFINALE.Services
         {
             try
             {
-                // Only create alerts for Inactive or Retired status
-                if (newStatus != EquipmentStatus.Inactive && newStatus != EquipmentStatus.Retired)
+                // Only create alerts for Retired status (not Inactive to reduce alert volume)
+                if (newStatus != EquipmentStatus.Retired)
                     return;
 
                 // Don't create duplicate alerts if status hasn't actually changed
                 if (previousStatus == newStatus)
                     return;
 
-                // Get equipment details
+                // Get equipment details first
                 var equipment = await _context.Equipment
                     .Include(e => e.EquipmentModel)
                     .Include(e => e.EquipmentType)
@@ -42,6 +42,16 @@ namespace FEENALOoFINALE.Services
                 if (equipment == null)
                 {
                     _logger.LogWarning("Equipment with ID {EquipmentId} not found", equipmentId);
+                    return;
+                }
+
+                // Check if this is critical equipment worth alerting about
+                var isCriticalEquipment = equipment.EquipmentType?.EquipmentTypeName?.Contains("Critical", StringComparison.OrdinalIgnoreCase) == true ||
+                                         equipment.EquipmentModel?.ModelName?.Contains("Critical", StringComparison.OrdinalIgnoreCase) == true;
+
+                if (!isCriticalEquipment)
+                {
+                    _logger.LogInformation("Equipment {EquipmentId} status changed to {Status} but is not critical equipment, skipping alert", equipmentId, newStatus);
                     return;
                 }
 
@@ -123,7 +133,9 @@ namespace FEENALOoFINALE.Services
         {
             return status switch
             {
+                // Only retired equipment gets critical priority
                 EquipmentStatus.Retired => AlertPriority.High,
+                // Inactive equipment gets medium priority (not critical)
                 EquipmentStatus.Inactive => AlertPriority.Medium,
                 _ => AlertPriority.Low
             };

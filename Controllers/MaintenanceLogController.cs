@@ -3,13 +3,17 @@ using Microsoft.EntityFrameworkCore;
 using FEENALOoFINALE.Data;
 using FEENALOoFINALE.Models;
 using Microsoft.AspNetCore.Authorization;
+using FEENALOoFINALE.Services;
+using Microsoft.AspNetCore.Identity;
 
 namespace FEENALOoFINALE.Controllers
 {
     [Authorize]
-    public class MaintenanceLogController(ApplicationDbContext context) : Controller
+    public class MaintenanceLogController(ApplicationDbContext context, IPredictiveAnalyticsService predictiveAnalyticsService, UserManager<User> userManager) : Controller
     {
         private readonly ApplicationDbContext _context = context;
+        private readonly IPredictiveAnalyticsService _predictiveAnalyticsService = predictiveAnalyticsService;
+        private readonly UserManager<User> _userManager = userManager;
 
         // GET: MaintenanceLog
         public async Task<IActionResult> Index()
@@ -103,8 +107,8 @@ namespace FEENALOoFINALE.Controllers
                     _context.Add(maintenanceLog);
                     await _context.SaveChangesAsync();
 
-                    // Note: Do not auto-complete tasks or resolve alerts here
-                    // That should only happen when maintenance is marked as completed
+                    // Update AI model with new maintenance log
+                    await _predictiveAnalyticsService.UpdateModelWithMaintenanceLogAsync(maintenanceLog);
 
                     return RedirectToAction(nameof(Index));
                 }
@@ -281,6 +285,30 @@ namespace FEENALOoFINALE.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // GET: MaintenanceLog/ActiveTasks - Show only pending/in-progress logs for technicians
+        public async Task<IActionResult> ActiveTasks()
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            
+            // Get only pending and in-progress maintenance logs, prioritizing current user's tasks
+            var activeTasks = await _context.MaintenanceLogs
+                .Include(m => m.Equipment)
+                    .ThenInclude(e => e!.EquipmentType)
+                .Include(m => m.Equipment)
+                    .ThenInclude(e => e!.EquipmentModel)
+                .Include(m => m.Task)
+                .Include(m => m.Alert)
+                .Where(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress)
+                .OrderBy(m => m.Technician == currentUser!.UserName ? 0 : 1) // Current user's tasks first
+                .ThenBy(m => m.LogDate)
+                .ToListAsync();
+
+            ViewBag.CurrentUserName = currentUser?.UserName;
+            ViewData["Title"] = "Active Tasks - Logs to Complete";
+            
+            return View(activeTasks);
         }
 
         private bool MaintenanceLogExists(int id)

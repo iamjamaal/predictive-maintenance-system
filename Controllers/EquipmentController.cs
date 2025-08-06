@@ -16,17 +16,34 @@ namespace FEENALOoFINALE.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly MaintenanceSchedulingService _schedulingService;
-        
-        public EquipmentController(ApplicationDbContext context, MaintenanceSchedulingService schedulingService)
+        private readonly ICacheService _cacheService;
+        private readonly IPerformanceMonitoringService? _performanceMonitor;
+        private readonly ILogger<EquipmentController> _logger;
+        private readonly IDocumentProcessingService _documentProcessingService;
+        private readonly IWebHostEnvironment _environment;
+
+        public EquipmentController(ApplicationDbContext context, 
+                                  MaintenanceSchedulingService schedulingService, 
+                                  ICacheService cacheService,
+                                  ILogger<EquipmentController> logger,
+                                  IDocumentProcessingService documentProcessingService,
+                                  IWebHostEnvironment environment,
+                                  IPerformanceMonitoringService? performanceMonitor = null)
         {
             _context = context;
             _schedulingService = schedulingService;
+            _cacheService = cacheService;
+            _logger = logger;
+            _documentProcessingService = documentProcessingService;
+            _environment = environment;
+            _performanceMonitor = performanceMonitor;
         }
 
         // GET: Equipment
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string searchTerm, int? buildingId, int? roomId, string status, string filter)
         {
-            return View(await _context.Equipment
+            // Start with all equipment
+            var query = _context.Equipment
                 .Include(e => e.EquipmentType)
                 .Include(e => e.EquipmentModel)
                 .Include(e => e.Building)
@@ -34,7 +51,66 @@ namespace FEENALOoFINALE.Controllers
                 .Include(e => e.MaintenanceLogs)
                 .Include(e => e.FailurePredictions)
                 .Include(e => e.Alerts)
-                .ToListAsync());
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                query = query.Where(e => (e.EquipmentModel != null && e.EquipmentModel.ModelName.Contains(searchTerm)) ||
+                                       (e.EquipmentType != null && e.EquipmentType.EquipmentTypeName.Contains(searchTerm)) ||
+                                       (e.Notes != null && e.Notes.Contains(searchTerm)));
+                ViewBag.SearchTerm = searchTerm;
+            }
+
+            if (buildingId.HasValue)
+            {
+                query = query.Where(e => e.BuildingId == buildingId.Value);
+                ViewBag.SelectedBuildingId = buildingId.Value;
+            }
+
+            if (roomId.HasValue)
+            {
+                query = query.Where(e => e.RoomId == roomId.Value);
+                ViewBag.SelectedRoomId = roomId.Value;
+            }
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (Enum.TryParse<EquipmentStatus>(status, out var statusEnum))
+                {
+                    query = query.Where(e => e.Status == statusEnum);
+                }
+                ViewBag.SelectedStatus = status;
+            }
+
+            // Handle special filters from dashboard
+            if (!string.IsNullOrEmpty(filter))
+            {
+                switch (filter.ToLower())
+                {
+                    case "needsattention":
+                        // Equipment that needs attention: has open alerts, overdue maintenance, or inactive status
+                        query = query.Where(e => 
+                            e.Status == EquipmentStatus.Inactive || 
+                            e.Status == EquipmentStatus.Retired ||
+                            (e.Alerts != null && e.Alerts.Any(a => a.Status == AlertStatus.Open || a.Status == AlertStatus.InProgress)) ||
+                            (e.MaintenanceLogs != null && e.MaintenanceLogs.Any(ml => ml.LogDate.AddDays(30) < DateTime.Now && ml.Status == MaintenanceStatus.Pending)));
+                        ViewBag.FilterMessage = "Showing equipment that needs immediate attention";
+                        break;
+                }
+                ViewBag.SelectedFilter = filter;
+            }
+
+            // Load filter data
+            ViewBag.Buildings = await _context.Buildings.OrderBy(b => b.BuildingName).ToListAsync();
+            ViewBag.Rooms = await _context.Rooms.Include(r => r.Building).OrderBy(r => r.Building != null ? r.Building.BuildingName : "").ThenBy(r => r.RoomName).ToListAsync();
+
+            var equipment = await query.OrderBy(e => e.Building != null ? e.Building.BuildingName : "")
+                                     .ThenBy(e => e.Room != null ? e.Room.RoomName : "")
+                                     .ThenBy(e => e.EquipmentType != null ? e.EquipmentType.EquipmentTypeName : "")
+                                     .ToListAsync();
+
+            return View(equipment);
         }
 
         // GET: Equipment/Details/5
@@ -68,90 +144,127 @@ namespace FEENALOoFINALE.Controllers
         {
             ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName");
             ViewData["EquipmentModelId"] = new SelectList(await _context.EquipmentModels.ToListAsync(), "EquipmentModelId", "ModelName");
-            // ...other ViewData as needed
+            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName");
+            ViewData["RoomId"] = new SelectList(await _context.Rooms.ToListAsync(), "RoomId", "RoomName");
             return View();
         }
 
-        // POST: Equipment/Create
+        // POST: Equipment/
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("EquipmentId,EquipmentTypeId,EquipmentModelName,BuildingId,RoomId,InstallationDate,ExpectedLifespanMonths,Status,Notes")] Equipment equipment)
         {
-            // Validate required fields
+            // Track performance if service is available
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            // Enhanced validation with user-friendly messages
             if (string.IsNullOrWhiteSpace(equipment.EquipmentModelName))
             {
-                ModelState.AddModelError("EquipmentModelName", "Equipment Model is required.");
+                ModelState.AddModelError("EquipmentModelName", "Equipment model name is required. Please enter a descriptive name for this equipment.");
+            }
+
+            if (equipment.EquipmentTypeId <= 0)
+            {
+                ModelState.AddModelError("EquipmentTypeId", "Please select a valid equipment type from the dropdown menu.");
+            }
+
+            if (equipment.BuildingId <= 0)
+            {
+                ModelState.AddModelError("BuildingId", "Please select the building where this equipment is located.");
+            }
+
+            if (equipment.RoomId <= 0)
+            {
+                ModelState.AddModelError("RoomId", "Please select the specific room where this equipment is installed.");
+            }
+
+            if (equipment.InstallationDate.HasValue && equipment.InstallationDate.Value > DateTime.Now)
+            {
+                ModelState.AddModelError("InstallationDate", "Installation date cannot be in the future. Please enter a valid past date.");
+            }
+
+            if (equipment.ExpectedLifespanMonths <= 0)
+            {
+                ModelState.AddModelError("ExpectedLifespanMonths", "Expected lifespan must be greater than 0 months. Please enter a realistic lifespan estimate.");
             }
 
             if (ModelState.IsValid)
             {
-                // Validate foreign keys
-                var equipmentTypeExists = await _context.EquipmentTypes.AnyAsync(e => e.EquipmentTypeId == equipment.EquipmentTypeId);
-                var buildingExists = await _context.Buildings.AnyAsync(b => b.BuildingId == equipment.BuildingId);
-                var roomExists = await _context.Rooms.AnyAsync(r => r.RoomId == equipment.RoomId);
-
-                if (!equipmentTypeExists || !buildingExists || !roomExists)
-                {
-                    ModelState.AddModelError("", "One or more selected values are invalid.");
-                    // Repopulate dropdowns and return view
-                    ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
-                    ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName", equipment.BuildingId);
-                    ViewData["RoomId"] = new SelectList(await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId).ToListAsync(), "RoomId", "RoomName", equipment.RoomId);
-                    return View(equipment);
-                }
-
                 try
                 {
-                    // Find or create the equipment model
-                    var existingModel = await _context.EquipmentModels
-                        .FirstOrDefaultAsync(m => m.ModelName.ToLower() == equipment.EquipmentModelName!.ToLower() 
-                                                && m.EquipmentTypeId == equipment.EquipmentTypeId);
+                    // Verify references exist
+                    var equipmentTypeExists = await _context.EquipmentTypes.AnyAsync(et => et.EquipmentTypeId == equipment.EquipmentTypeId);
+                    var buildingExists = await _context.Buildings.AnyAsync(b => b.BuildingId == equipment.BuildingId);
+                    var roomExists = await _context.Rooms.AnyAsync(r => r.RoomId == equipment.RoomId && r.BuildingId == equipment.BuildingId);
 
-                    if (existingModel != null)
+                    if (!equipmentTypeExists)
                     {
-                        // Use existing model
-                        equipment.EquipmentModelId = existingModel.EquipmentModelId;
-                    }
-                    else
-                    {
-                        // Create new model
-                        var newModel = new EquipmentModel
-                        {
-                            ModelName = equipment.EquipmentModelName!.Trim(),
-                            EquipmentTypeId = equipment.EquipmentTypeId
-                        };
-                        
-                        _context.EquipmentModels.Add(newModel);
-                        await _context.SaveChangesAsync(); // Save to get the ID
-                        equipment.EquipmentModelId = newModel.EquipmentModelId;
+                        ModelState.AddModelError("EquipmentTypeId", "The selected equipment type is no longer available. Please refresh the page and try again.");
+                        await PopulateDropdowns();
+                        return View(equipment);
                     }
 
-                    // Clear the non-mapped property before saving equipment
-                    equipment.EquipmentModelName = null;
-                    
-                    _context.Add(equipment);
-                    await _context.SaveChangesAsync();
+                    if (!buildingExists)
+                    {
+                        ModelState.AddModelError("BuildingId", "The selected building is no longer available. Please refresh the page and try again.");
+                        await PopulateDropdowns();
+                        return View(equipment);
+                    }
 
-                    // Generate alert for new equipment if status is problematic
-                    await GenerateNewEquipmentAlert(equipment);
+                    if (!roomExists)
+                    {
+                        ModelState.AddModelError("RoomId", "The selected room is not available in the chosen building. Please select a different room or building.");
+                        await PopulateDropdowns();
+                        return View(equipment);
+                    }            // Set default values
+            equipment.Status = equipment.Status == 0 ? EquipmentStatus.Active : equipment.Status;
 
-                    return RedirectToAction(nameof(Index));
+            _context.Add(equipment);
+            await _context.SaveChangesAsync();
+
+                    // Clear cache
+                    await _cacheService.RemoveAsync("equipment_list");
+                    await _cacheService.RemoveAsync("dashboard_equipment_metrics");            TempData["SuccessMessage"] = $"Equipment '{equipment.EquipmentModelName}' has been successfully added to {await GetBuildingName(equipment.BuildingId)}.";
+            
+            // Track performance
+            stopwatch.Stop();
+            _performanceMonitor?.TrackOperation("Equipment.Create", stopwatch.Elapsed, true);
+            
+            return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException ex)
+                {
+                    _logger?.LogError(ex, "Database error while creating equipment");
+                    ModelState.AddModelError("", "A database error occurred while saving the equipment. Please try again or contact support if the problem persists.");
                 }
                 catch (Exception ex)
                 {
-                    // Log ex.Message and ex.InnerException?.Message
-                    ModelState.AddModelError("", "Error saving equipment: " + ex.Message);
+                    _logger?.LogError(ex, "Unexpected error while creating equipment");
+                    ModelState.AddModelError("", "An unexpected error occurred. Please try again or contact support if the problem persists.");
                 }
             }
 
-            var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
-            // Set a breakpoint here or log 'errors' to see what is failing
-
-            ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
-            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName", equipment.BuildingId);
-            ViewData["RoomId"] = new SelectList(await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId).ToListAsync(), "RoomId", "RoomName", equipment.RoomId);
-
+            await PopulateDropdowns();
             return View(equipment);
+        }
+
+        private async Task PopulateDropdowns()
+        {
+            ViewData["EquipmentTypeId"] = new SelectList(await _cacheService.GetOrSetAsync("equipment_types", 
+                async () => await _context.EquipmentTypes.ToListAsync(), TimeSpan.FromMinutes(30)), 
+                "EquipmentTypeId", "EquipmentTypeName");
+            
+            ViewData["BuildingId"] = new SelectList(await _cacheService.GetOrSetAsync("buildings", 
+                async () => await _context.Buildings.ToListAsync(), TimeSpan.FromMinutes(30)), 
+                "BuildingId", "BuildingName");
+            
+            ViewData["RoomId"] = new SelectList(new List<Room>(), "RoomId", "RoomName");
+        }
+
+        private async Task<string> GetBuildingName(int buildingId)
+        {
+            var building = await _context.Buildings.FindAsync(buildingId);
+            return building?.BuildingName ?? "Unknown Building";
         }
 
         // GET: Equipment/Edit/5
@@ -164,33 +277,79 @@ namespace FEENALOoFINALE.Controllers
 
             var equipment = await _context.Equipment
                 .Include(e => e.EquipmentModel)
+                .Include(e => e.EquipmentType)
+                .Include(e => e.Building)
+                .Include(e => e.Room)
                 .FirstOrDefaultAsync(e => e.EquipmentId == id);
+            
             if (equipment == null)
             {
                 return NotFound();
             }
 
-            // Set the model name for the text input
-            equipment.EquipmentModelName = equipment.EquipmentModel?.ModelName;
+            // Create edit view model
+            var viewModel = new EquipmentEditViewModel
+            {
+                EquipmentId = equipment.EquipmentId,
+                EquipmentTypeId = equipment.EquipmentTypeId,
+                EquipmentModelName = equipment.EquipmentModel?.ModelName ?? "",
+                BuildingId = equipment.BuildingId,
+                RoomId = equipment.RoomId,
+                InstallationDate = equipment.InstallationDate,
+                ExpectedLifespanMonths = equipment.ExpectedLifespanMonths,
+                Status = equipment.Status,
+                Notes = equipment.Notes,
+                EquipmentTypeName = equipment.EquipmentType?.EquipmentTypeName,
+                BuildingName = equipment.Building?.BuildingName,
+                RoomName = equipment.Room?.RoomName,
+                CurrentLocation = $"{equipment.Building?.BuildingName} - {equipment.Room?.RoomName}"
+            };
 
-            ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
-            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName", equipment.BuildingId);
-            ViewData["RoomId"] = new SelectList(await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId).ToListAsync(), "RoomId", "RoomName", equipment.RoomId);
-            return View(equipment);
+            // Get existing documents for this equipment model (shared across all equipment of same model)
+            var existingDocs = await _context.ManufacturerDocuments
+                .Where(d => d.EquipmentModelId == equipment.EquipmentModelId)
+                .Select(d => new DocumentInfo
+                {
+                    DocumentId = d.DocumentId,
+                    FileName = d.FileName,
+                    DocumentType = d.DocumentType ?? "Unknown",
+                    FileSizeBytes = d.FileSize,
+                    UploadDate = d.UploadDate,
+                    FilePath = d.FilePath
+                })
+                .ToListAsync();
+
+            viewModel.CurrentDocuments = existingDocs;
+
+            // Populate dropdown data
+            ViewBag.EquipmentTypeId = new SelectList(
+                await _context.EquipmentTypes.OrderBy(t => t.EquipmentTypeName).ToListAsync(), 
+                "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
+            
+            ViewBag.BuildingId = new SelectList(
+                await _context.Buildings.OrderBy(b => b.BuildingName).ToListAsync(), 
+                "BuildingId", "BuildingName", equipment.BuildingId);
+            
+            ViewBag.RoomId = new SelectList(
+                await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId)
+                    .OrderBy(r => r.RoomName).ToListAsync(), 
+                "RoomId", "RoomName", equipment.RoomId);
+
+            return View(viewModel);
         }
 
         // POST: Equipment/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("EquipmentId,EquipmentTypeId,EquipmentModelName,BuildingId,RoomId,InstallationDate,ExpectedLifespanMonths,Status,Notes")] Equipment equipment)
+        public async Task<IActionResult> Edit(int id, EquipmentEditViewModel viewModel)
         {
-            if (id != equipment.EquipmentId)
+            if (id != viewModel.EquipmentId)
             {
                 return NotFound();
             }
 
             // Validate required fields
-            if (string.IsNullOrWhiteSpace(equipment.EquipmentModelName))
+            if (string.IsNullOrWhiteSpace(viewModel.EquipmentModelName))
             {
                 ModelState.AddModelError("EquipmentModelName", "Equipment Model is required.");
             }
@@ -199,15 +358,21 @@ namespace FEENALOoFINALE.Controllers
             {
                 try
                 {
-                    // Get the original equipment status for comparison
-                    var originalEquipment = await _context.Equipment
-                        .AsNoTracking()
+                    // Get the original equipment for comparison and update
+                    var equipment = await _context.Equipment
                         .FirstOrDefaultAsync(e => e.EquipmentId == id);
+
+                    if (equipment == null)
+                    {
+                        return NotFound();
+                    }
+
+                    var originalStatus = equipment.Status;
 
                     // Find or create the equipment model
                     var existingModel = await _context.EquipmentModels
-                        .FirstOrDefaultAsync(m => m.ModelName.ToLower() == equipment.EquipmentModelName!.ToLower() 
-                                                && m.EquipmentTypeId == equipment.EquipmentTypeId);
+                        .FirstOrDefaultAsync(m => m.ModelName.ToLower() == viewModel.EquipmentModelName!.ToLower() 
+                                                && m.EquipmentTypeId == viewModel.EquipmentTypeId);
 
                     if (existingModel != null)
                     {
@@ -219,8 +384,8 @@ namespace FEENALOoFINALE.Controllers
                         // Create new model
                         var newModel = new EquipmentModel
                         {
-                            ModelName = equipment.EquipmentModelName!.Trim(),
-                            EquipmentTypeId = equipment.EquipmentTypeId
+                            ModelName = viewModel.EquipmentModelName!.Trim(),
+                            EquipmentTypeId = viewModel.EquipmentTypeId
                         };
                         
                         _context.EquipmentModels.Add(newModel);
@@ -228,21 +393,77 @@ namespace FEENALOoFINALE.Controllers
                         equipment.EquipmentModelId = newModel.EquipmentModelId;
                     }
 
-                    // Clear the non-mapped property before saving equipment
-                    equipment.EquipmentModelName = null;
+                    // Update equipment properties
+                    equipment.EquipmentTypeId = viewModel.EquipmentTypeId;
+                    equipment.BuildingId = viewModel.BuildingId;
+                    equipment.RoomId = viewModel.RoomId;
+                    equipment.InstallationDate = viewModel.InstallationDate;
+                    equipment.ExpectedLifespanMonths = viewModel.ExpectedLifespanMonths;
+                    equipment.Status = viewModel.Status;
+                    equipment.Notes = viewModel.Notes;
+                    
+                    // Handle average weekly usage hours if provided
+                    if (viewModel.AverageWeeklyUsageHours.HasValue)
+                    {
+                        equipment.AverageWeeklyUsageHours = viewModel.AverageWeeklyUsageHours.Value;
+                    }
 
                     _context.Update(equipment);
+
+                    // Handle document uploads
+                    if (viewModel.ManufacturerDocuments != null && viewModel.ManufacturerDocuments.Any())
+                    {
+                        var documentProcessingService = HttpContext.RequestServices.GetService<DocumentProcessingService>();
+                        
+                        if (documentProcessingService != null)
+                        {
+                            foreach (var file in viewModel.ManufacturerDocuments)
+                            {
+                                if (file.Length > 0)
+                                {
+                                    try
+                                    {
+                                        var saveResult = await documentProcessingService.SaveDocumentAsync(
+                                            file, 
+                                            equipment.EquipmentId, 
+                                            "Manual Upload" // Default document type
+                                        );
+                                        
+                                        if (!saveResult)
+                                        {
+                                            _logger.LogWarning("Failed to save document {FileName} for equipment {EquipmentId}", 
+                                                file.FileName, equipment.EquipmentId);
+                                        }
+                                        else
+                                        {
+                                            _logger.LogInformation("Successfully saved document {FileName} for equipment {EquipmentId}", 
+                                                file.FileName, equipment.EquipmentId);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, "Error saving document {FileName} for equipment {EquipmentId}", 
+                                            file.FileName, equipment.EquipmentId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     await _context.SaveChangesAsync();
 
                     // Generate condition-based alerts only when status changes to problematic states
-                    if (originalEquipment != null && originalEquipment.Status != equipment.Status)
+                    if (originalStatus != equipment.Status)
                     {
-                        await GenerateConditionBasedAlert(equipment, originalEquipment.Status);
+                        await GenerateConditionBasedAlert(equipment, originalStatus);
                     }
+
+                    TempData["SuccessMessage"] = "Equipment updated successfully!";
+                    return RedirectToAction(nameof(Details), new { id = equipment.EquipmentId });
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!EquipmentExists(equipment.EquipmentId))
+                    if (!EquipmentExists(viewModel.EquipmentId))
                     {
                         return NotFound();
                     }
@@ -251,12 +472,48 @@ namespace FEENALOoFINALE.Controllers
                         throw;
                     }
                 }
-                return RedirectToAction(nameof(Index));
+                catch (Exception ex)
+                {
+                    TempData["ErrorMessage"] = $"Error updating equipment: {ex.Message}";
+                }
             }
-            ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
-            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName", equipment.BuildingId);
-            ViewData["RoomId"] = new SelectList(await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId).ToListAsync(), "RoomId", "RoomName", equipment.RoomId);
-            return View(equipment);
+
+            // If we got this far, something failed, redisplay form
+            // Repopulate dropdown data
+            ViewData["EquipmentTypeId"] = new SelectList(
+                await _context.EquipmentTypes.OrderBy(t => t.EquipmentTypeName).ToListAsync(), 
+                "EquipmentTypeId", "EquipmentTypeName", viewModel.EquipmentTypeId);
+            
+            ViewData["BuildingId"] = new SelectList(
+                await _context.Buildings.OrderBy(b => b.BuildingName).ToListAsync(), 
+                "BuildingId", "BuildingName", viewModel.BuildingId);
+            
+            ViewData["RoomId"] = new SelectList(
+                await _context.Rooms.Where(r => r.BuildingId == viewModel.BuildingId)
+                    .OrderBy(r => r.RoomName).ToListAsync(), 
+                "RoomId", "RoomName", viewModel.RoomId);
+
+            // Reload existing documents for display (by equipment model)
+            var equipmentForDocs = await _context.Equipment.FindAsync(viewModel.EquipmentId);
+            if (equipmentForDocs?.EquipmentModelId != null)
+            {
+                var existingDocs = await _context.ManufacturerDocuments
+                    .Where(d => d.EquipmentModelId == equipmentForDocs.EquipmentModelId)
+                    .Select(d => new DocumentInfo
+                    {
+                        DocumentId = d.DocumentId,
+                        FileName = d.FileName,
+                        DocumentType = d.DocumentType ?? "Unknown",
+                        FileSizeBytes = d.FileSize,
+                        UploadDate = d.UploadDate,
+                        FilePath = d.FilePath
+                    })
+                    .ToListAsync();
+
+                viewModel.CurrentDocuments = existingDocs;
+            }
+
+            return View(viewModel);
         }
 
         // GET: Equipment/Delete/5
@@ -425,10 +682,11 @@ namespace FEENALOoFINALE.Controllers
         {
             var models = await _context.EquipmentModels
                 .Where(em => em.EquipmentTypeId == equipmentTypeId)
+                .OrderBy(em => em.ModelName)
                 .Select(em => new 
                 { 
-                    equipmentModelId = em.EquipmentModelId, 
-                    modelName = em.ModelName 
+                    value = em.EquipmentModelId, 
+                    text = em.ModelName 
                 })
                 .ToListAsync();
 
@@ -440,7 +698,8 @@ namespace FEENALOoFINALE.Controllers
         {
             var rooms = await _context.Rooms
                 .Where(r => r.BuildingId == buildingId)
-                .Select(r => new { r.RoomId, r.RoomName })
+                .OrderBy(r => r.RoomName)
+                .Select(r => new { value = r.RoomId, text = r.RoomName })
                 .ToListAsync();
             return Json(rooms);
         }
@@ -450,7 +709,8 @@ namespace FEENALOoFINALE.Controllers
         {
             var rooms = await _context.Rooms
                 .Where(r => r.BuildingId == buildingId)
-                .Select(r => new { r.RoomId, r.RoomName })
+                .OrderBy(r => r.RoomName)
+                .Select(r => new { value = r.RoomId, text = r.RoomName })
                 .ToListAsync();
             return Json(rooms);
         }
@@ -466,8 +726,9 @@ namespace FEENALOoFINALE.Controllers
             var newEquipmentType = new EquipmentType { EquipmentTypeName = name };
             _context.EquipmentTypes.Add(newEquipmentType);
             await _context.SaveChangesAsync();
+            await _cacheService.RemoveAsync("equipment_types");
 
-            return Json(new { success = true, newId = newEquipmentType.EquipmentTypeId });
+            return Json(new { success = true, newId = newEquipmentType.EquipmentTypeId, text = newEquipmentType.EquipmentTypeName });
         }
 
         [HttpPost]
@@ -497,7 +758,7 @@ namespace FEENALOoFINALE.Controllers
             _context.EquipmentModels.Add(newEquipmentModel);
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, newId = newEquipmentModel.EquipmentModelId });
+            return Json(new { success = true, newId = newEquipmentModel.EquipmentModelId, text = newEquipmentModel.ModelName });
         }
 
         [HttpPost]
@@ -511,48 +772,59 @@ namespace FEENALOoFINALE.Controllers
             var newBuilding = new Building { BuildingName = name };
             _context.Buildings.Add(newBuilding);
             await _context.SaveChangesAsync();
+            await _cacheService.RemoveAsync("buildings");
 
-            return Json(new { success = true, newId = newBuilding.BuildingId });
+            return Json(new { success = true, newId = newBuilding.BuildingId, text = newBuilding.BuildingName });
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddRoom(string name)
+        public async Task<IActionResult> AddRoom(string name, int buildingId)
         {
             if (string.IsNullOrEmpty(name))
             {
-                return Json(new { success = false });
+                return Json(new { success = false, message = "Room name is required." });
             }
 
-            var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == 1) 
-                           ?? new Building { BuildingName = "Default Building" };
-            if (building.BuildingId == 0)
+            var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
+            if (building == null)
             {
-                _context.Buildings.Add(building);
-                await _context.SaveChangesAsync();
+                return Json(new { success = false, message = "Selected building not found." });
             }
 
-            var newRoom = new Room { RoomName = name, Building = building }; // Ensure Building is set properly
+            var newRoom = new Room { RoomName = name, BuildingId = buildingId };
             _context.Rooms.Add(newRoom);
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, newId = newRoom.RoomId });
+            return Json(new { success = true, newId = newRoom.RoomId, text = newRoom.RoomName });
         }
         [HttpGet]
         public async Task<JsonResult> GetEquipmentTypes()
         {
-            var equipmentTypes = await _context.EquipmentTypes
-                .Select(et => new { et.EquipmentTypeId, et.EquipmentTypeName })
-                .ToListAsync();
-            return Json(equipmentTypes);
+            var cacheKey = "equipment_types";
+            var equipmentTypes = await _cacheService.GetAsync<List<EquipmentType>>(cacheKey);
+            if (equipmentTypes == null)
+            {
+                equipmentTypes = await _context.EquipmentTypes
+                    .Select(et => new EquipmentType { EquipmentTypeId = et.EquipmentTypeId, EquipmentTypeName = et.EquipmentTypeName })
+                    .ToListAsync();
+                await _cacheService.SetAsync(cacheKey, equipmentTypes, TimeSpan.FromMinutes(30));
+            }
+            return Json(equipmentTypes.Select(et => new { value = et.EquipmentTypeId, text = et.EquipmentTypeName }));
         }
 
         [HttpGet]
         public async Task<JsonResult> GetBuildings()
         {
-            var buildings = await _context.Buildings
-                .Select(b => new { b.BuildingId, b.BuildingName })
-                .ToListAsync();
-            return Json(buildings);
+            var cacheKey = "buildings";
+            var buildings = await _cacheService.GetAsync<List<Building>>(cacheKey);
+            if (buildings == null)
+            {
+                buildings = await _context.Buildings
+                    .Select(b => new Building { BuildingId = b.BuildingId, BuildingName = b.BuildingName })
+                    .ToListAsync();
+                await _cacheService.SetAsync(cacheKey, buildings, TimeSpan.FromMinutes(30));
+            }
+            return Json(buildings.Select(b => new { value = b.BuildingId, text = b.BuildingName }));
         }    
 
         // Generate condition-based alerts when equipment status changes
@@ -1285,6 +1557,379 @@ namespace FEENALOoFINALE.Controllers
                 TempData["ErrorMessage"] = $"Error creating test equipment: {ex.Message}";
                 return RedirectToAction(nameof(Index));
             }
+        }
+
+        // GET: Equipment/Documents/5
+        public async Task<IActionResult> Documents(int id)
+        {
+            var equipment = await _context.Equipment
+                .Include(e => e.EquipmentModel)
+                .Include(e => e.EquipmentType)
+                .Include(e => e.Building)
+                .Include(e => e.Room)
+                .FirstOrDefaultAsync(e => e.EquipmentId == id);
+
+            if (equipment == null)
+            {
+                return NotFound();
+            }
+
+            var documents = await _context.ManufacturerDocuments
+                .Include(d => d.MaintenanceRecommendations)
+                .Where(d => d.EquipmentModelId == equipment.EquipmentModelId)
+                .OrderByDescending(d => d.UploadDate)
+                .ToListAsync();
+
+            ViewBag.EquipmentId = id;
+            ViewBag.EquipmentName = $"{equipment.EquipmentType?.EquipmentTypeName} - {equipment.EquipmentModel?.ModelName}";
+
+            return View(documents);
+        }
+
+        // POST: Equipment/UploadDocument
+        [HttpPost]
+        public async Task<IActionResult> UploadDocument(int equipmentId, IFormFile documentFile, string documentType, bool processAutomatically = true)
+        {
+            try
+            {
+                if (documentFile == null || documentFile.Length == 0)
+                {
+                    return Json(new { success = false, message = "No file selected" });
+                }
+
+                // Validate file
+                var allowedTypes = new[] { "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain" };
+                var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".txt" };
+                var extension = Path.GetExtension(documentFile.FileName).ToLower();
+
+                if (!allowedTypes.Contains(documentFile.ContentType) || !allowedExtensions.Contains(extension))
+                {
+                    return Json(new { success = false, message = "Invalid file type. Only PDF, Word, and text files are allowed." });
+                }
+
+                if (documentFile.Length > 10 * 1024 * 1024) // 10MB
+                {
+                    return Json(new { success = false, message = "File size exceeds 10MB limit." });
+                }
+
+                // Check if equipment exists
+                var equipment = await _context.Equipment.FindAsync(equipmentId);
+                if (equipment == null)
+                {
+                    return Json(new { success = false, message = "Equipment not found." });
+                }
+
+                // Save document
+                var success = await _documentProcessingService.SaveDocumentAsync(documentFile, equipmentId, documentType);
+                
+                if (success)
+                {
+                    if (processAutomatically)
+                    {
+                        // Get the equipment and its model to find the document we just saved
+                        var uploadedEquipment = await _context.Equipment.FindAsync(equipmentId);
+                        if (uploadedEquipment?.EquipmentModelId != null)
+                        {
+                            var document = await _context.ManufacturerDocuments
+                                .Where(d => d.EquipmentModelId == uploadedEquipment.EquipmentModelId && d.FileName == documentFile.FileName)
+                                .OrderByDescending(d => d.UploadDate)
+                                .FirstOrDefaultAsync();
+
+                            if (document != null)
+                            {
+                                // Process document in background
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await _documentProcessingService.ProcessDocumentAsync(document.DocumentId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, $"Error processing document {document.DocumentId} in background");
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    return Json(new { success = true, message = "Document uploaded successfully" });
+                }
+                else
+                {
+                    return Json(new { success = false, message = "Failed to save document" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading document");
+                return Json(new { success = false, message = "An error occurred while uploading the document" });
+            }
+        }
+
+        // POST: Equipment/ProcessDocument
+        [HttpPost]
+        public async Task<IActionResult> ProcessDocument(int documentId)
+        {
+            try
+            {
+                var document = await _context.ManufacturerDocuments.FindAsync(documentId);
+                if (document == null)
+                {
+                    return Json(new { success = false, message = "Document not found" });
+                }
+
+                await _documentProcessingService.ProcessDocumentAsync(documentId);
+                return Json(new { success = true, message = "Document processed successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing document");
+                return Json(new { success = false, message = "An error occurred while processing the document" });
+            }
+        }
+
+        // GET: Equipment/GetDocumentRecommendations
+        public async Task<IActionResult> GetDocumentRecommendations(int documentId)
+        {
+            try
+            {
+                var document = await _context.ManufacturerDocuments
+                    .Include(d => d.MaintenanceRecommendations)
+                    .FirstOrDefaultAsync(d => d.DocumentId == documentId);
+
+                if (document == null)
+                {
+                    return PartialView("_DocumentRecommendations", new List<MaintenanceRecommendation>());
+                }
+
+                return PartialView("_DocumentRecommendations", document.MaintenanceRecommendations ?? new List<MaintenanceRecommendation>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting document recommendations");
+                return PartialView("_DocumentRecommendations", new List<MaintenanceRecommendation>());
+            }
+        }
+
+        // POST: Equipment/DeleteDocument
+        [HttpPost]
+        public async Task<IActionResult> DeleteDocument(int documentId)
+        {
+            try
+            {
+                var document = await _context.ManufacturerDocuments
+                    .Include(d => d.MaintenanceRecommendations)
+                    .FirstOrDefaultAsync(d => d.DocumentId == documentId);
+
+                if (document == null)
+                {
+                    return Json(new { success = false, message = "Document not found" });
+                }
+
+                // Delete associated recommendations first
+                if (document.MaintenanceRecommendations?.Any() == true)
+                {
+                    _context.MaintenanceRecommendations.RemoveRange(document.MaintenanceRecommendations);
+                }
+
+                // Delete the physical file
+                if (System.IO.File.Exists(document.FilePath))
+                {
+                    System.IO.File.Delete(document.FilePath);
+                }
+
+                // Delete the database record
+                _context.ManufacturerDocuments.Remove(document);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Document deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting document");
+                return Json(new { success = false, message = "An error occurred while deleting the document" });
+            }
+        }
+
+        // POST: Equipment/RemoveDocument (alias for DeleteDocument)
+        [HttpPost]
+        public async Task<IActionResult> RemoveDocument(int documentId)
+        {
+            return await DeleteDocument(documentId);
+        }
+
+        // GET: Equipment/MaintenanceRecommendations/5
+        public async Task<IActionResult> MaintenanceRecommendations(int id)
+        {
+            var equipment = await _context.Equipment
+                .Include(e => e.EquipmentModel)
+                .Include(e => e.EquipmentType)
+                .Include(e => e.Building)
+                .Include(e => e.Room)
+                .FirstOrDefaultAsync(e => e.EquipmentId == id);
+
+            if (equipment == null)
+            {
+                return NotFound();
+            }
+
+            var recommendations = await _context.MaintenanceRecommendations
+                .Include(r => r.Document)
+                .Where(r => r.EquipmentId == id)
+                .OrderByDescending(r => r.CreatedDate)
+                .ToListAsync();
+
+            ViewBag.Equipment = equipment;
+            ViewBag.EquipmentName = $"{equipment.EquipmentType?.EquipmentTypeName} - {equipment.EquipmentModel?.ModelName}";
+
+            return View(recommendations);
+        }
+
+        // GET: Equipment/CreateWithDocs
+        public async Task<IActionResult> CreateWithDocs()
+        {
+            ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName");
+            ViewData["EquipmentModelId"] = new SelectList(await _context.EquipmentModels.ToListAsync(), "EquipmentModelId", "ModelName");
+            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName");
+            ViewData["RoomId"] = new SelectList(await _context.Rooms.ToListAsync(), "RoomId", "RoomName");
+            
+            // Add document types for the view
+            ViewBag.DocumentTypes = new string[] { "Manual", "Specification", "Warranty", "Installation Guide", "Maintenance Guide", "Safety Instructions" };
+            
+            return View();
+        }
+
+        // POST: Equipment/CreateWithDocs
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateWithDocs([Bind("EquipmentId,EquipmentTypeId,EquipmentModelName,BuildingId,RoomId,InstallationDate,ExpectedLifespanMonths,Status,Notes")] Equipment equipment, IFormFileCollection ManufacturerDocuments)
+        {
+            // Enhanced validation with user-friendly messages
+            if (string.IsNullOrWhiteSpace(equipment.EquipmentModelName))
+            {
+                ModelState.AddModelError("EquipmentModelName", "Equipment model name is required. Please enter a descriptive name for this equipment.");
+            }
+
+            if (equipment.EquipmentTypeId <= 0)
+            {
+                ModelState.AddModelError("EquipmentTypeId", "Please select a valid equipment type from the dropdown menu.");
+            }
+
+            if (equipment.BuildingId <= 0)
+            {
+                ModelState.AddModelError("BuildingId", "Please select the building where this equipment is located.");
+            }
+
+            if (equipment.RoomId <= 0)
+            {
+                ModelState.AddModelError("RoomId", "Please select the room where this equipment is located.");
+            }
+
+            if (equipment.ExpectedLifespanMonths <= 0)
+            {
+                ModelState.AddModelError("ExpectedLifespanMonths", "Expected lifespan must be greater than 0 months.");
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // First, find or create the equipment model
+                    var existingModel = await _context.EquipmentModels
+                        .FirstOrDefaultAsync(em => em.ModelName.ToLower() == equipment.EquipmentModelName!.ToLower());
+
+                    if (existingModel == null)
+                    {
+                        // Create new equipment model
+                        existingModel = new EquipmentModel
+                        {
+                            ModelName = equipment.EquipmentModelName!,
+                            EquipmentTypeId = equipment.EquipmentTypeId
+                        };
+                        _context.EquipmentModels.Add(existingModel);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Set the equipment model ID
+                    equipment.EquipmentModelId = existingModel.EquipmentModelId;
+
+                    // Add equipment to context
+                    _context.Add(equipment);
+                    await _context.SaveChangesAsync();
+
+                    // Handle document uploads if any
+                    if (ManufacturerDocuments != null && ManufacturerDocuments.Count > 0)
+                    {
+                        await ProcessDocumentUploads(ManufacturerDocuments, existingModel.EquipmentModelId, equipment.EquipmentId);
+                    }
+
+                    TempData["SuccessMessage"] = $"Equipment '{equipment.EquipmentModelName}' has been created successfully with {ManufacturerDocuments?.Count ?? 0} documents.";
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", $"An error occurred while creating the equipment: {ex.Message}");
+                }
+            }
+
+            // If we got here, something failed, redisplay form
+            ViewData["EquipmentTypeId"] = new SelectList(await _context.EquipmentTypes.ToListAsync(), "EquipmentTypeId", "EquipmentTypeName", equipment.EquipmentTypeId);
+            ViewData["EquipmentModelId"] = new SelectList(await _context.EquipmentModels.ToListAsync(), "EquipmentModelId", "ModelName");
+            ViewData["BuildingId"] = new SelectList(await _context.Buildings.ToListAsync(), "BuildingId", "BuildingName", equipment.BuildingId);
+            ViewData["RoomId"] = new SelectList(await _context.Rooms.Where(r => r.BuildingId == equipment.BuildingId).ToListAsync(), "RoomId", "RoomName", equipment.RoomId);
+            ViewBag.DocumentTypes = new string[] { "Manual", "Specification", "Warranty", "Installation Guide", "Maintenance Guide", "Safety Instructions" };
+            
+            return View(equipment);
+        }
+
+        private async Task ProcessDocumentUploads(IFormFileCollection files, int equipmentModelId, int uploadedByEquipmentId)
+        {
+            foreach (var file in files)
+            {
+                if (file.Length > 0)
+                {
+                    try
+                    {
+                        // Create uploads directory if it doesn't exist
+                        var uploadsDir = Path.Combine(_environment.WebRootPath, "uploads", "documents");
+                        Directory.CreateDirectory(uploadsDir);
+
+                        // Generate unique filename
+                        var fileName = Path.GetFileNameWithoutExtension(file.FileName);
+                        var extension = Path.GetExtension(file.FileName);
+                        var uniqueFileName = $"{fileName}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
+                        var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+                        // Save file
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+
+                        // Create document record
+                        var document = new ManufacturerDocument
+                        {
+                            FileName = file.FileName,
+                            FilePath = $"/uploads/documents/{uniqueFileName}",
+                            FileSize = file.Length,
+                            DocumentType = "Manual Upload",
+                            UploadDate = DateTime.Now,
+                            EquipmentModelId = equipmentModelId,
+                            UploadedByEquipmentId = uploadedByEquipmentId
+                        };
+
+                        _context.ManufacturerDocuments.Add(document);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail the entire operation
+                        Console.WriteLine($"Error uploading document {file.FileName}: {ex.Message}");
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }

@@ -20,13 +20,21 @@ namespace FEENALOoFINALE.Data
         public DbSet<MaintenanceInventoryLink> MaintenanceInventoryLinks { get; set; }
         public DbSet<Alert> Alerts { get; set; }
         public DbSet<MaintenanceTask> MaintenanceTasks { get; set; }
-        // public DbSet<EquipmentUsageLog> EquipmentUsageLogs { get; set; }
+        public DbSet<EquipmentUsageHistory> EquipmentUsageHistories { get; set; }
 
         public DbSet<EquipmentType> EquipmentTypes { get; set; }
         public DbSet<EquipmentModel> EquipmentModels { get; set; }
         public DbSet<Building> Buildings { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<SavedDashboardView> SavedDashboardViews { get; set; }
+        
+        // Semester management
+        public DbSet<Semester> Semesters { get; set; }
+        public DbSet<SemesterEquipmentUsage> SemesterEquipmentUsages { get; set; }
+        
+        // Document management and maintenance recommendations
+        public DbSet<ManufacturerDocument> ManufacturerDocuments { get; set; }
+        public DbSet<MaintenanceRecommendation> MaintenanceRecommendations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -174,6 +182,47 @@ namespace FEENALOoFINALE.Data
                 .HasForeignKey(r => r.BuildingId)
                 .IsRequired();
 
+            // Semester configuration
+            modelBuilder.Entity<Semester>(entity =>
+            {
+                entity.HasKey(s => s.SemesterId);
+                
+                entity.HasOne(s => s.UploadedBy)
+                    .WithMany()
+                    .HasForeignKey(s => s.UploadedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.Property(s => s.SemesterName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(s => s.TotalEquipmentHours)
+                    .HasPrecision(10, 2);
+            });
+
+            // SemesterEquipmentUsage configuration
+            modelBuilder.Entity<SemesterEquipmentUsage>(entity =>
+            {
+                entity.HasKey(seu => seu.Id);
+                
+                entity.HasOne(seu => seu.Semester)
+                    .WithMany(s => s.SemesterEquipmentUsages)
+                    .HasForeignKey(seu => seu.SemesterId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(seu => seu.Equipment)
+                    .WithMany()
+                    .HasForeignKey(seu => seu.EquipmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(seu => seu.WeeklyUsageHours)
+                    .HasPrecision(8, 2);
+
+                entity.HasIndex(seu => new { seu.SemesterId, seu.EquipmentId })
+                    .IsUnique()
+                    .HasDatabaseName("IX_SemesterEquipmentUsage_Semester_Equipment");
+            });
+
             // EquipmentUsageLog configuration - temporarily commented
             /*
             modelBuilder.Entity<EquipmentUsageLog>(entity =>
@@ -245,6 +294,121 @@ namespace FEENALOoFINALE.Data
                 new EquipmentModel { EquipmentModelId = 4, EquipmentTypeId = 1, ModelName = "2005 Metallic back grey projector" },
                 new EquipmentModel { EquipmentModelId = 5, EquipmentTypeId = 3, ModelName = "XX5 Dragon Podium" }
             );
+
+            // Seed Equipment with room restrictions applied
+            var equipmentSeedData = new List<Equipment>();
+            
+            // Room restrictions: Max 2 projectors, Max 4 ACs, Max 1 podium per room
+            var roomProjectorCount = new Dictionary<int, int>();
+            var roomACCount = new Dictionary<int, int>();
+            var roomPodiumCount = new Dictionary<int, int>();
+            
+            // Initialize counters for all rooms
+            for (int roomId = 1; roomId <= 12; roomId++)
+            {
+                roomProjectorCount[roomId] = 0;
+                roomACCount[roomId] = 0;
+                roomPodiumCount[roomId] = 0;
+            }
+
+            int equipmentId = 100; // Start from 100 to avoid conflicts with existing data
+
+            // Generate equipment for each room following restrictions
+            for (int roomId = 1; roomId <= 12; roomId++)
+            {
+                int buildingId = roomId <= 7 ? 1 : 2; // Rooms 1-7 are in building 1, 8-12 are in building 2
+                
+                // Add 1-2 projectors per room (respecting max 2 limit)
+                int projectorsForRoom = roomId % 3 == 0 ? 2 : 1; // Every third room gets 2 projectors
+                for (int p = 0; p < projectorsForRoom; p++)
+                {
+                    equipmentSeedData.Add(new Equipment
+                    {
+                        EquipmentId = equipmentId++,
+                        EquipmentTypeId = 1, // Projectors
+                        EquipmentModelId = p % 2 == 0 ? 1 : 4, // Alternate between model 1 (Black Dragon) and 4 (Metallic grey)
+                        BuildingId = buildingId,
+                        RoomId = roomId,
+                        InstallationDate = new DateTime(2024, 1, 15).AddDays(roomId * 10),
+                        ExpectedLifespanMonths = 60,
+                        Status = EquipmentStatus.Active,
+                        Notes = $"Classroom projector #{p + 1}",
+                        AverageWeeklyUsageHours = 25.5
+                    });
+                    roomProjectorCount[roomId]++;
+                }
+
+                // Add 2-4 air conditioners per room (respecting max 4 limit)
+                int acsForRoom = roomId <= 6 ? 4 : 3; // First 6 rooms get 4 ACs (max), others get 3
+                for (int ac = 0; ac < acsForRoom; ac++)
+                {
+                    equipmentSeedData.Add(new Equipment
+                    {
+                        EquipmentId = equipmentId++,
+                        EquipmentTypeId = 2, // Air Conditioners
+                        EquipmentModelId = ac % 2 == 0 ? 2 : 3, // Alternate between model 2 (21D model 6) and 3 (21D model 4)
+                        BuildingId = buildingId,
+                        RoomId = roomId,
+                        InstallationDate = new DateTime(2024, 2, 1).AddDays(roomId * 5),
+                        ExpectedLifespanMonths = 84,
+                        Status = EquipmentStatus.Active,
+                        Notes = $"HVAC unit #{ac + 1}",
+                        AverageWeeklyUsageHours = 40.0
+                    });
+                    roomACCount[roomId]++;
+                }
+
+                // Add exactly 1 podium per room (respecting max 1 limit)
+                equipmentSeedData.Add(new Equipment
+                {
+                    EquipmentId = equipmentId++,
+                    EquipmentTypeId = 3, // Podiums
+                    EquipmentModelId = 5, // XX5 Dragon Podium
+                    BuildingId = buildingId,
+                    RoomId = roomId,
+                    InstallationDate = new DateTime(2024, 3, 1).AddDays(roomId * 3),
+                    ExpectedLifespanMonths = 120,
+                    Status = EquipmentStatus.Active,
+                    Notes = "Lecture podium",
+                    AverageWeeklyUsageHours = 20.0
+                });
+                roomPodiumCount[roomId]++;
+            }
+
+            // Add some equipment with different statuses for testing
+            equipmentSeedData.Add(new Equipment
+            {
+                EquipmentId = equipmentId++,
+                EquipmentTypeId = 1,
+                EquipmentModelId = 4,
+                BuildingId = 1,
+                RoomId = 7, // PB214 - this would be a 3rd projector but it's inactive (doesn't count toward limit)
+                InstallationDate = new DateTime(2023, 6, 1),
+                ExpectedLifespanMonths = 60,
+                Status = EquipmentStatus.Inactive,
+                Notes = "Old projector - needs repair",
+                AverageWeeklyUsageHours = 0.0
+            });
+
+            equipmentSeedData.Add(new Equipment
+            {
+                EquipmentId = equipmentId++,
+                EquipmentTypeId = 2,
+                EquipmentModelId = 3,
+                BuildingId = 2,
+                RoomId = 12,
+                InstallationDate = new DateTime(2023, 1, 1),
+                ExpectedLifespanMonths = 84,
+                Status = EquipmentStatus.Retired,
+                Notes = "Retired air conditioner - end of life",
+                AverageWeeklyUsageHours = 0.0
+            });
+
+            modelBuilder.Entity<Equipment>().HasData(equipmentSeedData.ToArray());
+
+            modelBuilder.Entity<MaintenanceRecommendation>()
+                .Property(m => m.ConfidenceScore)
+                .HasPrecision(5, 4); // Allows values like 0.9876
         }
 
         public async Task<List<Equipment>> GetEquipmentWithDetailsAsync()

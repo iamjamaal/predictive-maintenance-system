@@ -1,0 +1,400 @@
+@using FEENALOoFINALE.Models
+@using FEENALOoFINALE.Models.ViewModels
+@model FEENALOoFINALE.Models.ViewModels.EquipmentCreateViewModel
+
+@{
+    ViewData["Title"] = "Add Equipment with Documents";
+}
+
+<h1>Add New Equipment</h1>
+<p class="text-muted">Create new equipment and upload manufacturer documents for automated maintenance recommendations.</p>
+
+<div class="row">
+    <div class="col-md-8">
+        @{await Html.RenderPartialAsync("_ValidationErrors", ViewData.ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToArray());}
+
+        <form asp-action="CreateWithDocs" class="loading-enabled" id="equipmentCreateForm" enctype="multipart/form-data">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="bi bi-gear me-2"></i>Equipment Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="EquipmentTypeId" class="form-label">Equipment Type <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <select asp-for="EquipmentTypeId" class="form-control select-chevron" asp-items="ViewBag.EquipmentTypeId" id="EquipmentTypeId">
+                                        <option value="">-- Select Equipment Type --</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#addEquipmentTypeModal">Add New</button>
+                                </div>
+                                <span asp-validation-for="EquipmentTypeId" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="EquipmentModelName" class="form-label">Equipment Model <span class="text-danger">*</span></label>
+                                <input asp-for="EquipmentModelName" class="form-control" placeholder="Enter model name" />
+                                <span asp-validation-for="EquipmentModelName" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="BuildingId" class="form-label">Building <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <select asp-for="BuildingId" class="form-control select-chevron" asp-items="ViewBag.BuildingId" id="BuildingId">
+                                        <option value="">-- Select Building --</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#addBuildingModal">Add New</button>
+                                </div>
+                                <span asp-validation-for="BuildingId" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="RoomId" class="form-label">Room <span class="text-danger">*</span></label>
+                                <select asp-for="RoomId" class="form-control select-chevron" asp-items="ViewBag.RoomId" id="RoomId">
+                                    <option value="">-- Select Room --</option>
+                                </select>
+                                <span asp-validation-for="RoomId" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="InstallationDate" class="form-label">Installation Date</label>
+                                <input asp-for="InstallationDate" class="form-control" type="date" />
+                                <span asp-validation-for="InstallationDate" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="ExpectedLifespanMonths" class="form-label">Expected Lifespan (Months) <span class="text-danger">*</span></label>
+                                <input asp-for="ExpectedLifespanMonths" class="form-control" type="number" min="1" max="600" placeholder="e.g., 60" />
+                                <span asp-validation-for="ExpectedLifespanMonths" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Status" class="form-label">Status</label>
+                                <select asp-for="Status" class="form-control" asp-items="Html.GetEnumSelectList<FEENALOoFINALE.Models.EquipmentStatus>()"></select>
+                                <span asp-validation-for="Status" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label asp-for="Notes" class="form-label">Notes</label>
+                        <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Additional notes about this equipment..."></textarea>
+                        <span asp-validation-for="Notes" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="bi bi-file-earmark-pdf me-2"></i>Manufacturer Documents</h5>
+                    <small class="text-muted">Upload manuals, specs, and other manufacturer documents for automated maintenance recommendations</small>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <div class="form-check">
+                            <input asp-for="ProcessDocumentsAutomatically" class="form-check-input" type="checkbox" checked />
+                            <label asp-for="ProcessDocumentsAutomatically" class="form-check-label">
+                                Automatically process documents for maintenance recommendations
+                            </label>
+                        </div>
+                        <div class="form-text">When enabled, uploaded documents will be analyzed to extract maintenance schedules and recommendations.</div>
+                    </div>
+
+                    <div id="documentUploads">
+                        <div class="document-upload-group mb-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Document File</label>
+                                    <input type="file" name="ManufacturerDocuments" class="form-control" accept=".pdf,.doc,.docx,.txt" />
+                                    <div class="form-text">
+                                        Allowed: PDF, Word, Text files. Max size: 10MB
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Document Type</label>
+                                    <select name="DocumentTypes" class="form-control">
+                                        <option value="">-- Select Type --</option>
+                                        @foreach (var docType in ViewBag.DocumentTypes as string[])
+                                        {
+                                            <option value="@docType">@docType</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-danger remove-document" style="display: none;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" id="addDocumentBtn" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>Add Another Document
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary" onclick="return submitFormWithLoading('equipmentCreateForm', this.id)" id="submitBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Create Equipment
+                </button>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to List
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Document Upload Guide</h6>
+            </div>
+            <div class="card-body">
+                <h6>Supported Documents:</h6>
+                <ul class="small">
+                    <li><strong>User Manuals</strong> - Operating instructions</li>
+                    <li><strong>Service Manuals</strong> - Maintenance procedures</li>
+                    <li><strong>Installation Guides</strong> - Setup instructions</li>
+                    <li><strong>Maintenance Schedules</strong> - Recommended intervals</li>
+                    <li><strong>Technical Specs</strong> - Equipment specifications</li>
+                </ul>
+
+                <h6>Processing Features:</h6>
+                <ul class="small">
+                    <li>Automatic text extraction from PDFs</li>
+                    <li>Maintenance schedule detection</li>
+                    <li>Safety guideline extraction</li>
+                    <li>Predictive maintenance recommendations</li>
+                </ul>
+
+                <div class="alert alert-info small">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    <strong>Tip:</strong> Upload manufacturer manuals and service guides for the best maintenance recommendations.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals (same as original Create.cshtml) -->
+<div class="modal fade" id="addEquipmentTypeModal" tabindex="-1" aria-labelledby="addEquipmentTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addEquipmentTypeModalLabel">Add New Equipment Type</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newEquipmentTypeName" class="form-label">Equipment Type Name</label>
+                    <input type="text" class="form-control" id="newEquipmentTypeName">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveNewType">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addBuildingModal" tabindex="-1" aria-labelledby="addBuildingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addBuildingModalLabel">Add New Building</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newBuildingName" class="form-label">Building Name</label>
+                    <input type="text" class="form-control" id="newBuildingName">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveNewBuilding">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addRoomModal" tabindex="-1" aria-labelledby="addRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addRoomModalLabel">Add New Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newRoomName" class="form-label">Room Name</label>
+                    <input type="text" class="form-control" id="newRoomName">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveNewRoom">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <script>
+        $(document).ready(function () {
+            let documentCount = 1;
+
+            // Add new document upload
+            $('#addDocumentBtn').click(function () {
+                const newGroup = `
+                    <div class="document-upload-group mb-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Document File</label>
+                                <input type="file" name="ManufacturerDocuments" class="form-control" accept=".pdf,.doc,.docx,.txt" />
+                                <div class="form-text">
+                                    Allowed: PDF, Word, Text files. Max size: 10MB
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Document Type</label>
+                                <select name="DocumentTypes" class="form-control">
+                                    <option value="">-- Select Type --</option>
+                                    @foreach (var docType in ViewBag.DocumentTypes as string[])
+                                    {
+                                        <option value="@docType">@docType</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-danger remove-document">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                
+                $('#documentUploads').append(newGroup);
+                documentCount++;
+                updateRemoveButtons();
+            });
+
+            // Remove document upload
+            $(document).on('click', '.remove-document', function () {
+                $(this).closest('.document-upload-group').remove();
+                documentCount--;
+                updateRemoveButtons();
+            });
+
+            function updateRemoveButtons() {
+                const groups = $('.document-upload-group');
+                if (groups.length > 1) {
+                    $('.remove-document').show();
+                } else {
+                    $('.remove-document').hide();
+                }
+            }
+
+            // Initialize remove buttons
+            updateRemoveButtons();
+
+            // Building/Room cascading dropdown
+            $('#BuildingId').change(function () {
+                const buildingId = $(this).val();
+                const $roomSelect = $('#RoomId');
+                $roomSelect.empty().append('<option value="">-- Select Room --</option>');
+                
+                if (buildingId) {
+                    $.get('@Url.Action("GetRoomsByBuilding", "Equipment")', { buildingId: buildingId })
+                        .done(function (data) {
+                            $.each(data, function (i, item) {
+                                $roomSelect.append($('<option>', {
+                                    value: item.value,
+                                    text: item.text
+                                }));
+                            });
+                        });
+                }
+            });
+
+            // Modal handlers for adding new items
+            $('#saveNewType').click(function () {
+                const name = $('#newEquipmentTypeName').val();
+                if (name) {
+                    $.post('@Url.Action("AddEquipmentType", "Equipment")', { name: name })
+                        .done(function (data) {
+                            if (data.success) {
+                                $('#addEquipmentTypeModal').modal('hide');
+                                $('#newEquipmentTypeName').val('');
+                                $('#EquipmentTypeId').append($('<option>', {
+                                    value: data.newId,
+                                    text: name,
+                                    selected: true
+                                }));
+                            }
+                        });
+                }
+            });
+
+            $('#saveNewBuilding').click(function () {
+                const name = $('#newBuildingName').val();
+                if (name) {
+                    $.post('@Url.Action("AddBuilding", "Equipment")', { name: name })
+                        .done(function (data) {
+                            if (data.success) {
+                                $('#addBuildingModal').modal('hide');
+                                $('#newBuildingName').val('');
+                                $('#BuildingId').append($('<option>', {
+                                    value: data.newId,
+                                    text: name,
+                                    selected: true
+                                }));
+                            }
+                        });
+                }
+            });
+
+            $('#saveNewRoom').click(function () {
+                const name = $('#newRoomName').val();
+                const buildingId = $('#BuildingId').val();
+                if (name && buildingId) {
+                    $.post('@Url.Action("AddRoom", "Equipment")', { name: name, buildingId: buildingId })
+                        .done(function (data) {
+                            if (data.success) {
+                                $('#addRoomModal').modal('hide');
+                                $('#newRoomName').val('');
+                                $('#RoomId').append($('<option>', {
+                                    value: data.newId,
+                                    text: name,
+                                    selected: true
+                                }));
+                            }
+                        });
+                }
+            });
+        });
+    </script>
+}

@@ -1,0 +1,368 @@
+@model FEENALOoFINALE.Models.ViewModels.MaintenanceReportViewModel
+@{
+    ViewData["Title"] = Model.PageTitle;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 text-primary">
+                        <i class="bi bi-wrench-adjustable me-2"></i>@Model.PageTitle
+                    </h2>
+                    <p class="text-muted mb-0">Maintenance activities and performance analysis</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i>Print
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="exportToExcel()">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Period Information -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info border-0">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-calendar-range me-3 fs-4"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1">Report Period</h6>
+                        <p class="mb-0">
+                            <strong>@Model.StartDate.ToString("MMMM dd, yyyy")</strong> to 
+                            <strong>@Model.EndDate.ToString("MMMM dd, yyyy")</strong>
+                            | Generated on @Model.GeneratedDate.ToString("MMM dd, yyyy 'at' HH:mm")
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-primary mb-2">@Model.TotalMaintenanceTasks</div>
+                    <h6 class="card-title text-muted mb-0">Total Tasks</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-success mb-2">@Model.CompletedTasks</div>
+                    <h6 class="card-title text-muted mb-0">Completed</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-warning mb-2">@Model.InProgressTasks</div>
+                    <h6 class="card-title text-muted mb-0">In Progress</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="display-6 text-danger mb-2">@Model.PendingTasks</div>
+                    <h6 class="card-title text-muted mb-0">Pending</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Analysis -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Total Cost</h6>
+                    <div class="h4 text-primary">$@Model.TotalCost.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Preventive Cost</h6>
+                    <div class="h4 text-success">$@Model.PreventiveCost.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">Reactive Cost</h6>
+                    <div class="h4 text-warning">$@Model.ReactiveCost.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    @if (Model.AverageCompletionTime > 0)
+    {
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title text-muted">Average Completion Time</h6>
+                        <div class="h4 text-info">@Math.Round(Model.AverageCompletionTime, 1) days</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h6 class="card-title text-muted">Average Cost Per Task</h6>
+                        <div class="h4 text-success">$@Math.Round(Model.AverageCostPerTask, 0)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>Filters
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="startDate" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="startDate" name="startDate" 
+                                       value="@Model.StartDate.ToString("yyyy-MM-dd")">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="endDate" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="endDate" name="endDate" 
+                                       value="@Model.EndDate.ToString("yyyy-MM-dd")">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="equipmentTypeId" class="form-label">Equipment Type</label>
+                                <select class="form-select" id="equipmentTypeId" name="equipmentTypeId">
+                                    <option value="">All Types</option>
+                                    @if (ViewBag.EquipmentTypes != null)
+                                    {
+                                        @foreach (var type in ViewBag.EquipmentTypes)
+                                        {
+                                            <option value="@type.EquipmentTypeId" 
+                                                    selected="@(Context.Request.Query["equipmentTypeId"] == type.EquipmentTypeId.ToString())">
+                                                @type.EquipmentTypeName
+                                            </option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="">All Statuses</option>
+                                    <option value="Completed" selected="@(Context.Request.Query["status"] == "Completed")">Completed</option>
+                                    <option value="InProgress" selected="@(Context.Request.Query["status"] == "InProgress")">In Progress</option>
+                                    <option value="Pending" selected="@(Context.Request.Query["status"] == "Pending")">Pending</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search me-1"></i>Apply Filters
+                                </button>
+                                <a asp-action="Maintenance" class="btn btn-outline-secondary ms-2">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-list me-2"></i>Maintenance Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @if (Model.MaintenanceList != null && Model.MaintenanceList.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="maintenanceTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Task ID</th>
+                                        <th>Equipment</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Cost</th>
+                                        <th>Assigned To</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var maintenance in Model.MaintenanceList)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <a asp-controller="MaintenanceLog" asp-action="Details" asp-route-id="@maintenance.LogId" 
+                                                   class="text-decoration-none fw-bold">
+                                                    #@maintenance.LogId
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <strong>@maintenance.EquipmentName</strong>
+                                                    <br><small class="text-muted">@maintenance.Location</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var typeBadge = maintenance.MaintenanceType switch
+                                                    {
+                                                        FEENALOoFINALE.Models.MaintenanceType.Preventive => "info",
+                                                        FEENALOoFINALE.Models.MaintenanceType.Corrective => "warning",
+                                                        FEENALOoFINALE.Models.MaintenanceType.Emergency => "danger",
+                                                        _ => "secondary"
+                                                    };
+                                                }
+                                                <span class="badge bg-@typeBadge">@maintenance.MaintenanceType</span>
+                                            </td>
+                                            <td>
+                                                <span title="@maintenance.Description">
+                                                    @(maintenance.Description.Length > 50 ? maintenance.Description.Substring(0, 50) + "..." : maintenance.Description)
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var priorityBadge = "secondary"; // Default value since Priority doesn't exist in MaintenanceSummaryItem
+                                                }
+                                                <span class="badge bg-@priorityBadge">Normal</span>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var statusBadge = maintenance.Status switch
+                                                    {
+                                                        FEENALOoFINALE.Models.MaintenanceStatus.Completed => "success",
+                                                        FEENALOoFINALE.Models.MaintenanceStatus.InProgress => "primary",
+                                                        FEENALOoFINALE.Models.MaintenanceStatus.Pending => "warning",
+                                                        _ => "secondary"
+                                                    };
+                                                }
+                                                <span class="badge bg-@statusBadge">@maintenance.Status</span>
+                                            </td>
+                                            <td>
+                                                @maintenance.LogDate.ToString("MMM dd, yyyy")
+                                                <br><small class="text-muted">@maintenance.LogDate.ToString("HH:mm")</small>
+                                            </td>
+                                            <td>
+                                                <strong>$@maintenance.Cost.ToString("N0")</strong>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(maintenance.Technician))
+                                                {
+                                                    <span class="badge bg-info">@maintenance.Technician</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Unassigned</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a asp-controller="MaintenanceLog" asp-action="Details" asp-route-id="@maintenance.LogId" 
+                                                       class="btn btn-outline-primary" title="View Details">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <span class="btn btn-outline-secondary disabled" title="Equipment Details Not Available">
+                                                        <i class="bi bi-gear"></i>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-wrench-adjustable display-1 mb-3"></i>
+                            <h5>No Maintenance Records Found</h5>
+                            <p>No maintenance activities match the current filter criteria.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function exportToExcel() {
+            // Simple CSV export
+            const table = document.getElementById('maintenanceTable');
+            let csv = '';
+            
+            // Headers
+            const headers = table.querySelectorAll('thead th');
+            const headerRow = Array.from(headers).slice(0, -1).map(th => th.textContent.trim()).join(',');
+            csv += headerRow + '\n';
+            
+            // Data rows
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = Array.from(cells).slice(0, -1).map(td => {
+                    let text = td.textContent.trim();
+                    // Clean up the text and escape commas
+                    text = text.replace(/"/g, '""');
+                    text = text.replace(/\s+/g, ' ');
+                    if (text.includes(',')) {
+                        text = `"${text}"`;
+                    }
+                    return text;
+                }).join(',');
+                csv += rowData + '\n';
+            });
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'maintenance-report.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+}

@@ -1,0 +1,273 @@
+@using FEENALOoFINALE.Models
+@model List<FEENALOoFINALE.Models.MaintenanceRecommendation>
+
+@{
+    ViewData["Title"] = "Maintenance Recommendations";
+    var equipment = ViewBag.Equipment as Equipment;
+    var equipmentName = ViewBag.EquipmentName as string ?? "Unknown Equipment";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="display-6 mb-2">Maintenance Recommendations</h1>
+        <p class="text-muted">Extracted recommendations for: <strong>@equipmentName</strong></p>
+    </div>
+    <div>
+        <a asp-action="Documents" asp-route-id="@equipment?.EquipmentId" class="btn btn-outline-primary btn-lg me-2">
+            <i class="bi bi-files me-2"></i>View Documents
+        </a>
+        <a asp-action="Details" asp-route-id="@equipment?.EquipmentId" class="btn btn-secondary btn-lg">
+            <i class="bi bi-arrow-left me-2"></i>Back to Equipment
+        </a>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-12">
+        @if (Model.Any())
+        {
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">@Model.Count</h5>
+                            <p class="card-text">Total Recommendations</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">@Model.Count(r => r.IsActive)</h5>
+                            <p class="card-text">Active</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">@Model.Count(r => r.Priority == "High" || r.Priority == "Critical")</h5>
+                            <p class="card-text">High Priority</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">@Model.GroupBy(r => r.DocumentId).Count()</h5>
+                            <p class="card-text">Source Documents</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @{
+            var priorityGroups = Model.Where(r => r.IsActive)
+                .GroupBy(r => r.Priority ?? "Unknown")
+                .OrderBy(g => g.Key switch 
+                { 
+                    "Critical" => 1, 
+                    "High" => 2, 
+                    "Medium" => 3, 
+                    "Low" => 4, 
+                    _ => 5 
+                });
+        }
+
+        @if (Model.Any())
+        {
+
+            @foreach (var group in priorityGroups)
+            {
+                var cardClass = group.Key.ToLower() switch
+                {
+                    "critical" => "border-danger",
+                    "high" => "border-warning",
+                    "medium" => "border-info",
+                    "low" => "border-secondary",
+                    _ => "border-light"
+                };
+
+                var headerClass = group.Key.ToLower() switch
+                {
+                    "critical" => "bg-danger text-white",
+                    "high" => "bg-warning text-dark",
+                    "medium" => "bg-info text-white",
+                    "low" => "bg-secondary text-white",
+                    _ => "bg-light text-dark"
+                };
+
+                <div class="card @cardClass mb-4">
+                    <div class="card-header @headerClass">
+                        <h5 class="card-title mb-0">
+                            @group.Key Priority Recommendations (@group.Count())
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach (var recommendation in group.OrderByDescending(r => r.CreatedDate))
+                            {
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <span class="badge bg-primary">@recommendation.RecommendationType</span>
+                                            </h6>
+                                            <p class="card-text">@recommendation.RecommendationText</p>
+                                            
+                                            @if (recommendation.IntervalDays.HasValue)
+                                            {
+                                                <p class="text-muted small">
+                                                    <i class="bi bi-clock me-1"></i>
+                                                    @if (recommendation.IntervalDays.Value == 1)
+                                                    {
+                                                        <span>Daily maintenance</span>
+                                                    }
+                                                    else if (recommendation.IntervalDays.Value == 7)
+                                                    {
+                                                        <span>Weekly maintenance</span>
+                                                    }
+                                                    else if (recommendation.IntervalDays.Value == 30)
+                                                    {
+                                                        <span>Monthly maintenance</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>Every @recommendation.IntervalDays days</span>
+                                                    }
+                                                </p>
+                                            }
+
+                                            @if (recommendation.ConfidenceScore.HasValue)
+                                            {
+                                                var confidence = (recommendation.ConfidenceScore.Value * 100);
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Confidence: @confidence.ToString("F0")%</small>
+                                                    <div class="progress" style="height: 5px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" 
+                                                             style="width: @confidence.ToString("F0")%"></div>
+                                                    </div>
+                                                </div>
+                                            }
+
+                                            <div class="mt-auto">
+                                                <small class="text-muted d-block">
+                                                    <i class="bi bi-calendar me-1"></i>Created: @recommendation.CreatedDate.ToString("MMM dd, yyyy")
+                                                </small>
+                                                @if (!string.IsNullOrEmpty(recommendation.Source))
+                                                {
+                                                    <small class="text-muted d-block">
+                                                        <i class="bi bi-file-text me-1"></i>Source: @recommendation.Source
+                                                    </small>
+                                                }
+                                                @if (recommendation.LastAppliedDate.HasValue)
+                                                {
+                                                    <small class="text-success d-block">
+                                                        <i class="bi bi-check-circle me-1"></i>Last applied: @recommendation.LastAppliedDate.Value.ToString("MMM dd, yyyy")
+                                                    </small>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+        }
+        else
+        {
+            <div class="card text-center">
+                <div class="card-body py-5">
+                    <i class="bi bi-lightbulb display-1 text-muted mb-3"></i>
+                    <h4>No Maintenance Recommendations</h4>
+                    <p class="text-muted">
+                        No maintenance recommendations have been extracted for this equipment yet.
+                        Upload manufacturer documents to get automated recommendations.
+                    </p>
+                    <a asp-action="Documents" asp-route-id="@equipment?.EquipmentId" class="btn btn-primary">
+                        <i class="bi bi-upload me-2"></i>Upload Documents
+                    </a>
+                </div>
+            </div>
+        }
+
+        @{
+            var inactiveRecommendations = Model.Where(r => !r.IsActive).ToList();
+        }
+
+        @if (inactiveRecommendations.Any())
+        {
+                <div class="card border-secondary">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-archive me-2"></i>Inactive Recommendations (@inactiveRecommendations.Count)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Recommendation</th>
+                                        <th>Priority</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rec in inactiveRecommendations.OrderByDescending(r => r.CreatedDate))
+                                    {
+                                        <tr class="text-muted">
+                                            <td><span class="badge bg-secondary">@rec.RecommendationType</span></td>
+                                            <td>@rec.RecommendationText</td>
+                                            <td>@rec.Priority</td>
+                                            <td>@rec.CreatedDate.ToString("MMM dd, yyyy")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="card text-center">
+                <div class="card-body py-5">
+                    <i class="bi bi-lightbulb display-1 text-muted mb-3"></i>
+                    <h4>No Maintenance Recommendations</h4>
+                    <p class="text-muted">
+                        No maintenance recommendations have been extracted for this equipment yet.
+                        Upload manufacturer documents to get automated recommendations.
+                    </p>
+                    <a asp-action="Documents" asp-route-id="@equipment?.EquipmentId" class="btn btn-primary">
+                        <i class="bi bi-upload me-2"></i>Upload Documents
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Add any interactive functionality here
+            console.log('Maintenance Recommendations page loaded');
+        });
+    </script>
+}

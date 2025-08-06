@@ -347,7 +347,7 @@ namespace FEENALOoFINALE.Controllers
                         WorkerId = model.WorkerId,
                         UserName = model.UserName,
                         Email = model.Email,
-                        ContactNumber = model.ContactNumber,
+                        // ContactNumber = model.ContactNumber,
                         IsEmailVerified = false,
                         EmailVerificationToken = GenerateEmailVerificationToken(),
                         EmailVerificationTokenExpires = DateTime.UtcNow.AddHours(24),
@@ -454,7 +454,7 @@ namespace FEENALOoFINALE.Controllers
                     existingUser.LastName = user.LastName;
                     existingUser.WorkerId = user.WorkerId;
                     existingUser.PhoneNumber = user.PhoneNumber;
-                    existingUser.ContactNumber = user.ContactNumber;
+                    // existingUser.ContactNumber = user.ContactNumber;
 
                     // Update username if changed
                     if (existingUser.UserName != user.UserName)
@@ -588,7 +588,7 @@ namespace FEENALOoFINALE.Controllers
                 user.LastName = model.LastName;
                 user.Email = model.Email;
                 user.PhoneNumber = model.PhoneNumber;
-                user.ContactNumber = model.ContactNumber;
+                // user.ContactNumber = model.ContactNumber;
                 user.WorkerId = model.WorkerId;
 
                 // Handle password change if provided

@@ -27,6 +27,9 @@ namespace FEENALOoFINALE.Services
         {
             _logger.LogInformation("Scheduled Maintenance Service started");
 
+            // Wait 4 minutes before first check to reduce startup load
+            await Task.Delay(TimeSpan.FromMinutes(4), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try

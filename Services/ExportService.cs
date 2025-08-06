@@ -1,11 +1,15 @@
 using OfficeOpenXml;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
 using FEENALOoFINALE.Models;
 using FEENALOoFINALE.Models.ViewModels;
 using FEENALOoFINALE.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.IO.Font.Constants;
+using iText.Kernel.Font;
 
 namespace FEENALOoFINALE.Services
 {
@@ -48,27 +52,27 @@ namespace FEENALOoFINALE.Services
         public async Task<byte[]> ExportDashboardDataToPdf()
         {
             using var memoryStream = new MemoryStream();
-            var document = new Document(PageSize.A4, 25, 25, 30, 30);
-            var writer = PdfWriter.GetInstance(document, memoryStream);
-
-            document.Open();
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 25, 30, 25);
 
             // Title
-            var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-            var title = new Paragraph("Predictive Maintenance Dashboard Report", titleFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 20
-            };
+            var titleFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var title = new Paragraph("Predictive Maintenance Dashboard Report")
+                .SetFont(titleFont)
+                .SetFontSize(18)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginBottom(20);
             document.Add(title);
 
             // Generated date
-            var dateFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", dateFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 30
-            };
+            var dateFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
+                .SetFont(dateFont)
+                .SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginBottom(30);
             document.Add(dateInfo);
 
             // Dashboard Summary
@@ -274,8 +278,8 @@ namespace FEENALOoFINALE.Services
 
         private async Task AddDashboardSummaryToPdf(Document document)
         {
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-            var header = new Paragraph("Dashboard Summary", headerFont) { SpacingAfter = 10 };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var header = new Paragraph("Dashboard Summary").SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(header);
 
             var totalEquipment = await _context.Equipment.CountAsync();
@@ -287,33 +291,34 @@ namespace FEENALOoFINALE.Services
             var criticalAlerts = await _context.Alerts
                 .CountAsync(a => a.Priority == AlertPriority.High && a.Status == AlertStatus.Open);
 
-            var table = new PdfPTable(2) { WidthPercentage = 50 };
-            table.SetWidths(new float[] { 3, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 3, 1 }))
+                .UseAllAvailableWidth().SetWidth(UnitValue.CreatePercentValue(50));
 
             // Table data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var boldFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
-            table.AddCell(new PdfPCell(new Phrase("Total Equipment", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase(totalEquipment.ToString(), cellFont)));
+            table.AddCell(new Cell().Add(new Paragraph("Total Equipment").SetFont(boldFont)));
+            table.AddCell(new Cell().Add(new Paragraph(totalEquipment.ToString()).SetFont(cellFont)));
 
-            table.AddCell(new PdfPCell(new Phrase("Active Maintenance Tasks", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase(activeMaintenanceTasks.ToString(), cellFont)));
+            table.AddCell(new Cell().Add(new Paragraph("Active Maintenance Tasks").SetFont(boldFont)));
+            table.AddCell(new Cell().Add(new Paragraph(activeMaintenanceTasks.ToString()).SetFont(cellFont)));
 
-            table.AddCell(new PdfPCell(new Phrase("Low Stock Items", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase(lowStockItems.ToString(), cellFont)));
+            table.AddCell(new Cell().Add(new Paragraph("Low Stock Items").SetFont(boldFont)));
+            table.AddCell(new Cell().Add(new Paragraph(lowStockItems.ToString()).SetFont(cellFont)));
 
-            table.AddCell(new PdfPCell(new Phrase("Critical Alerts", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase(criticalAlerts.ToString(), cellFont)));
+            table.AddCell(new Cell().Add(new Paragraph("Critical Alerts").SetFont(boldFont)));
+            table.AddCell(new Cell().Add(new Paragraph(criticalAlerts.ToString()).SetFont(cellFont)));
 
             document.Add(table);
-            document.Add(new Paragraph(" ", cellFont) { SpacingAfter = 20 });
+            document.Add(new Paragraph(" ").SetMarginBottom(20));
         }
 
         private async Task AddEquipmentSummaryToPdf(Document document)
         {
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-            var header = new Paragraph("Equipment Status Summary", headerFont) { SpacingAfter = 10 };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var header = new Paragraph("Equipment Status Summary")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(header);
 
             var equipmentByStatus = await _context.Equipment
@@ -321,26 +326,27 @@ namespace FEENALOoFINALE.Services
                 .Select(g => new { Status = g.Key, Count = g.Count() })
                 .ToListAsync();
 
-            var table = new PdfPTable(2) { WidthPercentage = 50 };
-            table.SetWidths(new float[] { 3, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 3, 1 }))
+                .UseAllAvailableWidth().SetWidth(UnitValue.CreatePercentValue(50));
 
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var boldFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
             foreach (var status in equipmentByStatus)
             {
-                table.AddCell(new PdfPCell(new Phrase(status.Status.ToString(), boldFont)));
-                table.AddCell(new PdfPCell(new Phrase(status.Count.ToString(), cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(status.Status.ToString()).SetFont(boldFont)));
+                table.AddCell(new Cell().Add(new Paragraph(status.Count.ToString()).SetFont(cellFont)));
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ", cellFont) { SpacingAfter = 20 });
+            document.Add(new Paragraph(" ").SetMarginBottom(20));
         }
 
         private async Task AddRecentAlertsToPdf(Document document)
         {
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-            var header = new Paragraph("Recent Critical Alerts", headerFont) { SpacingAfter = 10 };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var header = new Paragraph("Recent Critical Alerts")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(header);
 
             var recentAlerts = await _context.Alerts
@@ -352,40 +358,41 @@ namespace FEENALOoFINALE.Services
 
             if (recentAlerts.Any())
             {
-                var table = new PdfPTable(3) { WidthPercentage = 100 };
-                table.SetWidths(new float[] { 2, 3, 2 });
+                var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 3, 2 }))
+                    .UseAllAvailableWidth();
 
-                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
-                var boldFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
+                var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
                 // Headers
-                table.AddCell(new PdfPCell(new Phrase("Equipment ID", boldFont)));
-                table.AddCell(new PdfPCell(new Phrase("Description", boldFont)));
-                table.AddCell(new PdfPCell(new Phrase("Created", boldFont)));
+                table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment ID").SetFont(boldFont)));
+                table.AddHeaderCell(new Cell().Add(new Paragraph("Description").SetFont(boldFont)));
+                table.AddHeaderCell(new Cell().Add(new Paragraph("Created").SetFont(boldFont)));
 
                 // Data
                 foreach (var alert in recentAlerts)
                 {
-                    table.AddCell(new PdfPCell(new Phrase((alert.EquipmentId ?? 0).ToString(), cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(alert.Description, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(alert.CreatedDate.ToString("MM/dd/yyyy"), cellFont)));
+                    table.AddCell(new Cell().Add(new Paragraph((alert.EquipmentId ?? 0).ToString()).SetFont(cellFont)));
+                    table.AddCell(new Cell().Add(new Paragraph(alert.Description).SetFont(cellFont)));
+                    table.AddCell(new Cell().Add(new Paragraph(alert.CreatedDate.ToString("MM/dd/yyyy")).SetFont(cellFont)));
                 }
 
                 document.Add(table);
             }
             else
             {
-                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-                document.Add(new Paragraph("No critical alerts found.", cellFont));
+                var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                document.Add(new Paragraph("No critical alerts found.").SetFont(cellFont).SetFontSize(10));
             }
 
-            document.Add(new Paragraph(" ", FontFactory.GetFont(FontFactory.HELVETICA, 10)) { SpacingAfter = 20 });
+            document.Add(new Paragraph(" ").SetMarginBottom(20));
         }
 
         private async Task AddMaintenanceSummaryToPdf(Document document)
         {
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-            var header = new Paragraph("Maintenance Activity Summary", headerFont) { SpacingAfter = 10 };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var header = new Paragraph("Maintenance Activity Summary")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(header);
 
             var maintenanceByType = await _context.MaintenanceLogs
@@ -393,23 +400,23 @@ namespace FEENALOoFINALE.Services
                 .Select(g => new { Type = g.Key, Count = g.Count(), TotalCost = g.Sum(m => m.Cost) })
                 .ToListAsync();
 
-            var table = new PdfPTable(3) { WidthPercentage = 75 };
-            table.SetWidths(new float[] { 2, 1, 2 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 2 }))
+                .UseAllAvailableWidth().SetWidth(UnitValue.CreatePercentValue(75));
 
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var boldFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
 
             // Headers
-            table.AddCell(new PdfPCell(new Phrase("Type", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase("Count", boldFont)));
-            table.AddCell(new PdfPCell(new Phrase("Total Cost", boldFont)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Type").SetFont(boldFont)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Count").SetFont(boldFont)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Total Cost").SetFont(boldFont)));
 
             // Data
             foreach (var maintenance in maintenanceByType)
             {
-                table.AddCell(new PdfPCell(new Phrase(maintenance.Type.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(maintenance.Count.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase($"${maintenance.TotalCost:F2}", cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(maintenance.Type.ToString()).SetFont(cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(maintenance.Count.ToString()).SetFont(cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph($"${maintenance.TotalCost:F2}").SetFont(cellFont)));
             }
 
             document.Add(table);
@@ -467,36 +474,31 @@ namespace FEENALOoFINALE.Services
         public async Task<byte[]> ExportCustomReportToPdf(CustomReportTemplate template, DashboardFilterViewModel? filters = null)
         {
             using var memoryStream = new MemoryStream();
-            var document = new Document(PageSize.A4, 25, 25, 30, 30);
-            var writer = PdfWriter.GetInstance(document, memoryStream);
-
-            document.Open();
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 25, 30, 25);
 
             // Title
-            var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-            var title = new Paragraph(template.Name, titleFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 20
-            };
+            var titleFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var title = new Paragraph(template.Name)
+                .SetFont(titleFont).SetFontSize(18)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(20);
             document.Add(title);
 
             // Generated date
-            var dateFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", dateFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 30
-            };
+            var dateFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
+                .SetFont(dateFont).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(30);
             document.Add(dateInfo);
 
             // Add report sections
+            var sectionHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
             foreach (var section in template.Sections)
             {
-                var sectionTitle = new Paragraph(section.Title, FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-                {
-                    SpacingAfter = 10
-                };
+                var sectionTitle = new Paragraph(section.Title)
+                    .SetFont(sectionHeaderFont).SetFontSize(14).SetMarginBottom(10);
                 document.Add(sectionTitle);
 
                 // Add data based on section type
@@ -516,7 +518,7 @@ namespace FEENALOoFINALE.Services
                         break;
                 }
 
-                document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+                document.Add(new Paragraph(" ").SetMarginBottom(10));
             }
 
             document.Close();
@@ -553,27 +555,23 @@ namespace FEENALOoFINALE.Services
         public byte[] ExportAnalyticsDataToPdf(AdvancedAnalyticsViewModel analytics)
         {
             using var memoryStream = new MemoryStream();
-            var document = new Document(PageSize.A4, 25, 25, 30, 30);
-            var writer = PdfWriter.GetInstance(document, memoryStream);
-
-            document.Open();
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 25, 30, 25);
 
             // Title
-            var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-            var title = new Paragraph("Advanced Analytics Report", titleFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 20
-            };
+            var titleFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var title = new Paragraph("Advanced Analytics Report")
+                .SetFont(titleFont).SetFontSize(18)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(20);
             document.Add(title);
 
             // Generated date
-            var dateFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", dateFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 30
-            };
+            var dateFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
+                .SetFont(dateFont).SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(30);
             document.Add(dateInfo);
 
             // Add analytics sections
@@ -695,24 +693,24 @@ namespace FEENALOoFINALE.Services
         {
             var equipment = await GetFilteredEquipment(filters);
             
-            var table = new PdfPTable(4) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 3, 2, 2, 3 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 3, 2, 2, 3 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-            table.AddCell(new PdfPCell(new Phrase("Equipment Name", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Type", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Location", headerFont)));
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment Name").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Type").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Status").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Location").SetFont(headerFont).SetFontSize(10)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in equipment.Take(20)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.EquipmentModel?.ModelName ?? "Unknown", cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.EquipmentModel?.EquipmentType?.EquipmentTypeName ?? "Unknown", cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Status.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase($"{item.Room?.Building?.BuildingName} - {item.Room?.RoomName}", cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(item.EquipmentModel?.ModelName ?? "Unknown").SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.EquipmentModel?.EquipmentType?.EquipmentTypeName ?? "Unknown").SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Status.ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph($"{item.Room?.Building?.BuildingName} - {item.Room?.RoomName}").SetFont(cellFont).SetFontSize(9)));
             }
 
             document.Add(table);
@@ -720,28 +718,28 @@ namespace FEENALOoFINALE.Services
 
         private async Task AddMaintenanceDataToPdf(Document document, DashboardFilterViewModel? filters)
         {
-            var maintenance = await GetFilteredMaintenance(filters);
+            var maintenance = await GetFilteredMaintenance(filters);            
             
-            var table = new PdfPTable(5) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 2, 1.5f, 1.5f, 3, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1.5f, 1.5f, 3, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-            table.AddCell(new PdfPCell(new Phrase("Equipment", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Type", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Date", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Description", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Cost", headerFont)));
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Type").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Date").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Description").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Cost").SetFont(headerFont).SetFontSize(10)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in maintenance.Take(20)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.Equipment?.EquipmentModel?.ModelName ?? "Unknown", cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.MaintenanceType.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.LogDate.ToString("yyyy-MM-dd"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Description?.Substring(0, Math.Min(50, item.Description?.Length ?? 0)) ?? "", cellFont)));
-                table.AddCell(new PdfPCell(new Phrase($"${item.Cost:F2}", cellFont))); // Cost is non-nullable
+                table.AddCell(new Cell().Add(new Paragraph(item.Equipment?.EquipmentModel?.ModelName ?? "Unknown").SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.MaintenanceType.ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.LogDate.ToString("yyyy-MM-dd")).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Description?.Substring(0, Math.Min(50, item.Description?.Length ?? 0)) ?? "").SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph($"${item.Cost:F2}").SetFont(cellFont).SetFontSize(9)));
             }
 
             document.Add(table);
@@ -749,26 +747,26 @@ namespace FEENALOoFINALE.Services
 
         private async Task AddAlertsDataToPdf(Document document, DashboardFilterViewModel? filters)
         {
-            var alerts = await GetFilteredAlerts(filters);
+            var alerts = await GetFilteredAlerts(filters);            
             
-            var table = new PdfPTable(4) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 2, 1, 1, 4 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 1, 4 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-            table.AddCell(new PdfPCell(new Phrase("Equipment", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Priority", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Description", headerFont)));
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Priority").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Status").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Description").SetFont(headerFont).SetFontSize(10)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in alerts.Take(20)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.Equipment?.EquipmentModel?.ModelName ?? "Unknown", cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Priority.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Status.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Description?.Substring(0, Math.Min(60, item.Description?.Length ?? 0)) ?? "", cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Equipment?.EquipmentModel?.ModelName ?? "Unknown").SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Priority.ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Status.ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Description?.Substring(0, Math.Min(60, item.Description?.Length ?? 0)) ?? "").SetFont(cellFont).SetFontSize(9)));
             }
 
             document.Add(table);
@@ -776,26 +774,26 @@ namespace FEENALOoFINALE.Services
 
         private async Task AddInventoryDataToPdf(Document document, DashboardFilterViewModel? filters)
         {
-            var inventory = await GetFilteredInventory(filters);
+            var inventory = await GetFilteredInventory(filters);            
             
-            var table = new PdfPTable(4) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 3, 2, 1, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 3, 2, 1, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-            table.AddCell(new PdfPCell(new Phrase("Item Name", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Category", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Stock", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Min Level", headerFont)));
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Item Name").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Category").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Stock").SetFont(headerFont).SetFontSize(10)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Min Level").SetFont(headerFont).SetFontSize(10)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in inventory.Take(20)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.Name, cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.Category.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase((item.InventoryStocks?.Sum(s => s.Quantity) ?? 0).ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.MinStockLevel.ToString(), cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Name).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Category.ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph((item.InventoryStocks?.Sum(s => s.Quantity) ?? 0).ToString()).SetFont(cellFont).SetFontSize(9)));
+                table.AddCell(new Cell().Add(new Paragraph(item.MinStockLevel.ToString()).SetFont(cellFont).SetFontSize(9)));
             }
 
             document.Add(table);
@@ -958,174 +956,169 @@ namespace FEENALOoFINALE.Services
         // PDF analytics methods
         private void AddPerformanceMetricsToPdf(Document document, List<FEENALOoFINALE.Models.EquipmentPerformanceMetrics> metrics)
         {
-            var sectionTitle = new Paragraph("Equipment Performance Metrics", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-            {
-                SpacingAfter = 10
-            };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var sectionTitle = new Paragraph("Equipment Performance Metrics")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(sectionTitle);
 
-            var table = new PdfPTable(6) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 2, 1, 1, 1, 1, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 1, 1, 1, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            table.AddCell(new PdfPCell(new Phrase("Equipment", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Uptime %", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Efficiency %", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("MTBF (h)", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("MTTR (h)", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Failure %", headerFont)));
+            var tableHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Uptime %").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Efficiency %").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("MTBF (h)").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("MTTR (h)").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Failure %").SetFont(tableHeaderFont).SetFontSize(9)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var metric in metrics.Take(10)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(metric.EquipmentName, cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(metric.UptimePercentage.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(metric.EfficiencyScore.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(metric.MeanTimeBetweenFailures.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(metric.MeanTimeToRepair.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(metric.FailureCount.ToString(), cellFont))); // Use FailureCount instead of FailureRate
+                table.AddCell(new Cell().Add(new Paragraph(metric.EquipmentName).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(metric.UptimePercentage.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(metric.EfficiencyScore.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(metric.MeanTimeBetweenFailures.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(metric.MeanTimeToRepair.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(metric.FailureCount.ToString()).SetFont(cellFont).SetFontSize(8)));
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+            document.Add(new Paragraph(" ").SetMarginBottom(10));
         }
 
         private void AddKPIsToPdf(Document document, List<KPIProgressIndicator> kpis)
         {
-            var sectionTitle = new Paragraph("Key Performance Indicators", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-            {
-                SpacingAfter = 10
-            };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var sectionTitle = new Paragraph("Key Performance Indicators")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(sectionTitle);
 
-            var table = new PdfPTable(5) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 2, 1, 1, 1, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 1, 1, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            table.AddCell(new PdfPCell(new Phrase("KPI Name", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Current", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Target", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Progress %", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Trend", headerFont)));
+            var tableHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("KPI Name").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Current").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Target").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Progress %").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Trend").SetFont(tableHeaderFont).SetFontSize(9)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var kpi in kpis.Take(10)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(kpi.KPIName, cellFont))); // Use KPIName instead of Name
-                table.AddCell(new PdfPCell(new Phrase(kpi.CurrentValue.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(kpi.TargetValue.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(kpi.ProgressPercentage.ToString("F1"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(kpi.Direction, cellFont))); // Use Direction instead of Trend
+                table.AddCell(new Cell().Add(new Paragraph(kpi.KPIName).SetFont(cellFont).SetFontSize(8))); // Use KPIName instead of Name
+                table.AddCell(new Cell().Add(new Paragraph(kpi.CurrentValue.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(kpi.TargetValue.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(kpi.ProgressPercentage.ToString("F1")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(kpi.Direction).SetFont(cellFont).SetFontSize(8))); // Use Direction instead of Trend
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+            document.Add(new Paragraph(" ").SetMarginBottom(10));
         }
 
         private void AddPredictiveAnalyticsToPdf(Document document, List<PredictiveAnalyticsData> analytics)
         {
-            var sectionTitle = new Paragraph("Predictive Analytics", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-            {
-                SpacingAfter = 10
-            };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var sectionTitle = new Paragraph("Predictive Analytics")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(sectionTitle);
 
-            var table = new PdfPTable(4) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 2, 1, 2, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 2, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            table.AddCell(new PdfPCell(new Phrase("Equipment", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Failure Prob.", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Recommended Action", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Confidence", headerFont)));
+            var tableHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Equipment").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Failure Prob.").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Recommended Action").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Confidence").SetFont(tableHeaderFont).SetFontSize(9)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in analytics.Take(10)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.EquipmentName, cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.ConfidenceScore.ToString("F1"), cellFont))); // Use ConfidenceScore instead of FailureProbability
-                table.AddCell(new PdfPCell(new Phrase(string.Join(", ", item.RecommendedActions), cellFont))); // Join list of actions
-                table.AddCell(new PdfPCell(new Phrase(item.ConfidenceScore.ToString("F1"), cellFont))); // Use ConfidenceScore instead of ConfidenceLevel
+                table.AddCell(new Cell().Add(new Paragraph(item.EquipmentName).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(item.ConfidenceScore.ToString("F1")).SetFont(cellFont).SetFontSize(8))); // Use ConfidenceScore instead of FailureProbability
+                table.AddCell(new Cell().Add(new Paragraph(string.Join(", ", item.RecommendedActions)).SetFont(cellFont).SetFontSize(8))); // Join list of actions
+                table.AddCell(new Cell().Add(new Paragraph(item.ConfidenceScore.ToString("F1")).SetFont(cellFont).SetFontSize(8))); // Use ConfidenceScore instead of ConfidenceLevel
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+            document.Add(new Paragraph(" ").SetMarginBottom(10));
         }
 
         private void AddTrendAnalysisToPdf(Document document, List<MaintenanceTrendData> trendData)
         {
-            var sectionTitle = new Paragraph("Maintenance Trend Analysis", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-            {
-                SpacingAfter = 10
-            };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var sectionTitle = new Paragraph("Maintenance Trend Analysis")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(sectionTitle);
 
-            var table = new PdfPTable(6) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 1.5f, 1, 1, 1, 1, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 1.5f, 1, 1, 1, 1, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            table.AddCell(new PdfPCell(new Phrase("Date", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Preventive", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Corrective", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Predictive", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Inspection", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Total Cost", headerFont)));
+            var tableHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Date").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Preventive").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Corrective").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Predictive").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Inspection").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Total Cost").SetFont(tableHeaderFont).SetFontSize(9)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in trendData.Take(10)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.Date.ToString("MMM dd"), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.PreventiveMaintenanceCount.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase(item.CorrectiveMaintenanceCount.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase("0", cellFont))); // PredictiveMaintenanceCount not available
-                table.AddCell(new PdfPCell(new Phrase(item.InspectionMaintenanceCount.ToString(), cellFont)));
-                table.AddCell(new PdfPCell(new Phrase($"${item.TotalCost:F0}", cellFont)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Date.ToString("MMM dd")).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(item.PreventiveMaintenanceCount.ToString()).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph(item.CorrectiveMaintenanceCount.ToString()).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph("0").SetFont(cellFont).SetFontSize(8))); // PredictiveMaintenanceCount not available
+                table.AddCell(new Cell().Add(new Paragraph(item.InspectionMaintenanceCount.ToString()).SetFont(cellFont).SetFontSize(8)));
+                table.AddCell(new Cell().Add(new Paragraph($"${item.TotalCost:F0}").SetFont(cellFont).SetFontSize(8)));
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+            document.Add(new Paragraph(" ").SetMarginBottom(10));
         }
 
         private void AddCostAnalysisToPdf(Document document, List<CostAnalysisData> costData)
         {
-            var sectionTitle = new Paragraph("Cost Analysis", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14))
-            {
-                SpacingAfter = 10
-            };
+            var headerFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var sectionTitle = new Paragraph("Cost Analysis")
+                .SetFont(headerFont).SetFontSize(14).SetMarginBottom(10);
             document.Add(sectionTitle);
 
-            var table = new PdfPTable(5) { WidthPercentage = 100 };
-            table.SetWidths(new float[] { 1.5f, 1, 1, 1, 1 });
+            var table = new Table(UnitValue.CreatePercentArray(new float[] { 1.5f, 1, 1, 1, 1 }))
+                .UseAllAvailableWidth();
 
             // Headers
-            var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            table.AddCell(new PdfPCell(new Phrase("Month", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Maintenance", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Parts", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Labor", headerFont)));
-            table.AddCell(new PdfPCell(new Phrase("Total", headerFont)));
+            var tableHeaderFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Month").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Maintenance").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Parts").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Labor").SetFont(tableHeaderFont).SetFontSize(9)));
+            table.AddHeaderCell(new Cell().Add(new Paragraph("Total").SetFont(tableHeaderFont).SetFontSize(9)));
 
             // Data
-            var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+            var cellFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             foreach (var item in costData.Take(10)) // Limit for PDF
             {
-                table.AddCell(new PdfPCell(new Phrase(item.Category, cellFont))); // Use Category instead of Period
-                table.AddCell(new PdfPCell(new Phrase(item.CategoryValue, cellFont))); // Use CategoryValue
-                table.AddCell(new PdfPCell(new Phrase($"${item.TotalCost:F0}", cellFont))); // Use TotalCost
-                table.AddCell(new PdfPCell(new Phrase($"${item.AverageCost:F0}", cellFont))); // Use AverageCost
-                table.AddCell(new PdfPCell(new Phrase($"${item.ProjectedCost:F0}", cellFont))); // Use ProjectedCost
+                table.AddCell(new Cell().Add(new Paragraph(item.Category).SetFont(cellFont).SetFontSize(8))); // Use Category instead of Period
+                table.AddCell(new Cell().Add(new Paragraph(item.CategoryValue).SetFont(cellFont).SetFontSize(8))); // Use CategoryValue
+                table.AddCell(new Cell().Add(new Paragraph($"${item.TotalCost:F0}").SetFont(cellFont).SetFontSize(8))); // Use TotalCost
+                table.AddCell(new Cell().Add(new Paragraph($"${item.AverageCost:F0}").SetFont(cellFont).SetFontSize(8))); // Use AverageCost
+                table.AddCell(new Cell().Add(new Paragraph($"${item.ProjectedCost:F0}").SetFont(cellFont).SetFontSize(8))); // Use ProjectedCost
             }
 
             document.Add(table);
-            document.Add(new Paragraph(" ") { SpacingAfter = 10 });
+            document.Add(new Paragraph(" ").SetMarginBottom(10));
         }
 
         // Helper methods for data filtering
@@ -1288,40 +1281,42 @@ namespace FEENALOoFINALE.Services
         private byte[] GenerateReportPdfAsync(string jsonData, object reportData)
         {
             using var memoryStream = new MemoryStream();
-            var document = new Document(PageSize.A4, 25, 25, 30, 30);
-            var writer = PdfWriter.GetInstance(document, memoryStream);
-
-            document.Open();
+            var writer = new PdfWriter(memoryStream);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+            document.SetMargins(30, 25, 30, 25);
 
             // Title
-            var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-            var title = new Paragraph("Custom Report", titleFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 20
-            };
+            var titleFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var title = new Paragraph("Custom Report")
+                .SetFont(titleFont)
+                .SetFontSize(18)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginBottom(20);
             document.Add(title);
 
             // Generated date
-            var dateFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", dateFont)
-            {
-                Alignment = Element.ALIGN_CENTER,
-                SpacingAfter = 30
-            };
+            var dateFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var dateInfo = new Paragraph($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
+                .SetFont(dateFont)
+                .SetFontSize(10)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetMarginBottom(30);
             document.Add(dateInfo);
 
             // Report content
-            var contentFont = FontFactory.GetFont(FontFactory.HELVETICA, 12);
-            var content = new Paragraph("Report Data:", contentFont)
-            {
-                SpacingAfter = 15
-            };
+            var contentFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var content = new Paragraph("Report Data:")
+                .SetFont(contentFont)
+                .SetFontSize(12)
+                .SetMarginBottom(15);
             document.Add(content);
 
             // Add formatted JSON data
-            var dataFont = FontFactory.GetFont(FontFactory.COURIER, 9);
-            var dataParagraph = new Paragraph(jsonData, dataFont);
+            var dataFont = PdfFontFactory.CreateFont(StandardFonts.COURIER);
+            var dataParagraph = new Paragraph(jsonData)
+                .SetFont(dataFont)
+                .SetFontSize(9);
             document.Add(dataParagraph);
 
             document.Close();

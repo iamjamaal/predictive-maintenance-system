@@ -13,11 +13,28 @@ namespace FEENALOoFINALE.Controllers
         private readonly ApplicationDbContext _context = context;
 
         // GET: Inventory
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string filter)
         {
-            var items = await _context.InventoryItems
+            var query = _context.InventoryItems
                 .Include(i => i.InventoryStocks)
-                .ToListAsync();
+                .AsQueryable();
+
+            // Handle special filters from dashboard
+            if (!string.IsNullOrEmpty(filter))
+            {
+                switch (filter.ToLower())
+                {
+                    case "lowstock":
+                        // Items with low stock (total quantity below minimum threshold)
+                        query = query.Where(i => i.InventoryStocks != null && 
+                                               i.InventoryStocks.Sum(s => s.Quantity) <= i.MinimumStockLevel);
+                        ViewBag.FilterMessage = "Showing items with low stock levels";
+                        break;
+                }
+                ViewBag.SelectedFilter = filter;
+            }
+
+            var items = await query.ToListAsync();
             return View(items);
         }
 

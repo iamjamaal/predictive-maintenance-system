@@ -198,6 +198,165 @@ namespace FEENALOoFINALE.Controllers
             return View(logs);
         }
 
+        // Equipment-specific report
+        public async Task<IActionResult> Equipment(string? buildingId = null, string? equipmentTypeId = null, string? status = null)
+        {
+            var viewModel = new EquipmentReportViewModel
+            {
+                PageTitle = "Equipment Report",
+                GeneratedDate = DateTime.Now
+            };
+
+            // Build query
+            var query = _context.Equipment
+                .Include(e => e.EquipmentType)
+                .Include(e => e.EquipmentModel)
+                .Include(e => e.Building)
+                .Include(e => e.Room)
+                .Include(e => e.MaintenanceLogs)
+                .Include(e => e.Alerts)
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(buildingId) && int.TryParse(buildingId, out var bId))
+            {
+                query = query.Where(e => e.BuildingId == bId);
+            }
+
+            if (!string.IsNullOrEmpty(equipmentTypeId) && int.TryParse(equipmentTypeId, out var etId))
+            {
+                query = query.Where(e => e.EquipmentTypeId == etId);
+            }
+
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<EquipmentStatus>(status, out var statusEnum))
+            {
+                query = query.Where(e => e.Status == statusEnum);
+            }
+
+            var equipment = await query.ToListAsync();
+
+            // Build summary statistics
+            viewModel.TotalEquipment = equipment.Count;
+            viewModel.ActiveEquipment = equipment.Count(e => e.Status == EquipmentStatus.Active);
+            viewModel.InactiveEquipment = equipment.Count(e => e.Status == EquipmentStatus.Inactive);
+            viewModel.RetiredEquipment = equipment.Count(e => e.Status == EquipmentStatus.Retired);
+
+            // Calculate averages
+            viewModel.AverageAge = equipment.Where(e => e.InstallationDate.HasValue)
+                .Select(e => (DateTime.Now - e.InstallationDate!.Value).Days / 365.0)
+                .DefaultIfEmpty(0)
+                .Average();
+            
+            viewModel.TotalMaintenanceCost = equipment
+                .SelectMany(e => e.MaintenanceLogs ?? new List<MaintenanceLog>())
+                .Sum(m => m.Cost);
+
+            // Equipment list
+            viewModel.EquipmentList = equipment.Select(e => new EquipmentSummaryItem
+            {
+                EquipmentId = e.EquipmentId,
+                TypeName = e.EquipmentType?.EquipmentTypeName ?? "Unknown",
+                ModelName = e.EquipmentModel?.ModelName ?? "Unknown",
+                Location = $"{e.Building?.BuildingName} - {e.Room?.RoomName}",
+                Status = e.Status,
+                InstallationDate = e.InstallationDate,
+                LastMaintenanceDate = e.MaintenanceLogs?.OrderByDescending(m => m.LogDate).FirstOrDefault()?.LogDate,
+                ActiveAlertsCount = e.Alerts?.Count(a => a.Status == AlertStatus.Open) ?? 0
+            }).ToList();
+
+            // Filter options for the form
+            ViewBag.Buildings = await _context.Buildings.Select(b => new { b.BuildingId, b.BuildingName }).ToListAsync();
+            ViewBag.EquipmentTypes = await _context.EquipmentTypes.Select(et => new { et.EquipmentTypeId, et.EquipmentTypeName }).ToListAsync();
+
+            return View(viewModel);
+        }
+
+        // Maintenance-specific report
+        public async Task<IActionResult> Maintenance(DateTime? startDate = null, DateTime? endDate = null, string? equipmentTypeId = null, string? status = null)
+        {
+            startDate ??= DateTime.Now.AddDays(-30);
+            endDate ??= DateTime.Now;
+
+            var viewModel = new MaintenanceReportViewModel
+            {
+                PageTitle = "Maintenance Report",
+                GeneratedDate = DateTime.Now,
+                StartDate = startDate.Value,
+                EndDate = endDate.Value
+            };
+
+            // Build query
+            var query = _context.MaintenanceLogs
+                .Include(m => m.Equipment)
+                .ThenInclude(e => e.EquipmentType)
+                .Include(m => m.Equipment)
+                .ThenInclude(e => e.Building)
+                .Include(m => m.Equipment)
+                .ThenInclude(e => e.Room)
+                .Where(m => m.LogDate >= startDate && m.LogDate <= endDate)
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(equipmentTypeId) && int.TryParse(equipmentTypeId, out var etId))
+            {
+                query = query.Where(m => m.Equipment!.EquipmentTypeId == etId);
+            }
+
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<MaintenanceStatus>(status, out var statusEnum))
+            {
+                query = query.Where(m => m.Status == statusEnum);
+            }
+
+            var maintenanceLogs = await query.ToListAsync();
+
+            // Build summary statistics
+            viewModel.TotalMaintenanceTasks = maintenanceLogs.Count;
+            viewModel.CompletedTasks = maintenanceLogs.Count(m => m.Status == MaintenanceStatus.Completed);
+            viewModel.PendingTasks = maintenanceLogs.Count(m => m.Status == MaintenanceStatus.Pending);
+            viewModel.InProgressTasks = maintenanceLogs.Count(m => m.Status == MaintenanceStatus.InProgress);
+
+            viewModel.TotalCost = maintenanceLogs.Sum(m => m.Cost);
+            viewModel.PreventiveCost = maintenanceLogs.Where(m => m.MaintenanceType == MaintenanceType.Preventive).Sum(m => m.Cost);
+            viewModel.ReactiveCost = maintenanceLogs.Where(m => m.MaintenanceType == MaintenanceType.Corrective).Sum(m => m.Cost);
+
+            // Calculate averages
+            if (maintenanceLogs.Any())
+            {
+                viewModel.AverageCostPerTask = maintenanceLogs.Average(m => (double)m.Cost);
+                viewModel.AverageCompletionTime = 2.5; // Mock data - could be calculated from actual dates
+            }
+
+            // Maintenance list
+            viewModel.MaintenanceList = maintenanceLogs.Select(m => new MaintenanceSummaryItem
+            {
+                LogId = m.LogId,
+                EquipmentName = m.Equipment?.EquipmentType?.EquipmentTypeName ?? "Unknown",
+                Location = $"{m.Equipment?.Building?.BuildingName} - {m.Equipment?.Room?.RoomName}",
+                MaintenanceType = m.MaintenanceType,
+                Status = m.Status,
+                LogDate = m.LogDate,
+                Cost = m.Cost,
+                Technician = m.Technician ?? "Unknown",
+                Description = m.Description ?? ""
+            }).OrderByDescending(m => m.LogDate).ToList();
+
+            // Breakdown by type
+            viewModel.TypeBreakdown = maintenanceLogs
+                .GroupBy(m => m.MaintenanceType)
+                .Select(g => new MaintenanceTypeBreakdown
+                {
+                    Type = g.Key,
+                    Count = g.Count(),
+                    TotalCost = g.Sum(m => m.Cost),
+                    AverageCost = g.Average(m => (double)m.Cost)
+                }).ToList();
+
+            // Filter options
+            ViewBag.EquipmentTypes = await _context.EquipmentTypes.Select(et => new { et.EquipmentTypeId, et.EquipmentTypeName }).ToListAsync();
+
+            return View(viewModel);
+        }
+
         // Helper Methods
         private async Task<ReportStatistics> BuildReportStatistics(ReportFilters filters)
         {

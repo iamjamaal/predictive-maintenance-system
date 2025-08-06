@@ -15,6 +15,9 @@ namespace FEENALOoFINALE.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // Wait 6 minutes before first run to reduce startup load
+            await Task.Delay(TimeSpan.FromMinutes(6), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try

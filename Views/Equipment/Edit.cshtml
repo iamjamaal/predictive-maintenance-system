@@ -1,181 +1,484 @@
 @using FEENALOoFINALE.Models
-@model FEENALOoFINALE.Models.Equipment
+@using FEENALOoFINALE.Models.ViewModels
+@model FEENALOoFINALE.Models.ViewModels.EquipmentEditViewModel
 
 @{
     ViewData["Title"] = "Edit Equipment";
 }
 
-<h1>Edit Equipment</h1>
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Equipment</a></li>
+                    <li class="breadcrumb-item active">Edit Equipment</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Edit Equipment</h1>
+                    <p class="text-muted mb-0">Update equipment information and configuration</p>
+                </div>
+                <div>
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </a>
+                    <a href="@Url.Action("Details", new { id = Model.EquipmentId })" class="btn btn-outline-info">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" asp-for="EquipmentId" />
-            
-            @* Remove the following three form-groups *@@* 
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+    <!-- Alerts -->
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form asp-action="Edit" class="loading-enabled" id="equipmentEditForm" enctype="multipart/form-data">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <input type="hidden" asp-for="EquipmentId" />
+
+                <!-- Equipment Information Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-gear me-2"></i>Equipment Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="EquipmentTypeId" class="form-label">Equipment Type <span class="text-danger">*</span></label>
+                                    <select asp-for="EquipmentTypeId" class="form-control" asp-items="ViewBag.EquipmentTypeId" id="EquipmentTypeId">
+                                        <option value="">-- Select Equipment Type --</option>
+                                    </select>
+                                    <span asp-validation-for="EquipmentTypeId" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="EquipmentModelName" class="form-label">Equipment Model <span class="text-danger">*</span></label>
+                                    <input asp-for="EquipmentModelName" class="form-control" placeholder="Enter model name/number" />
+                                    <small class="form-text text-muted">Model name or number (e.g., XP-2000, ABC-123)</small>
+                                    <span asp-validation-for="EquipmentModelName" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="BuildingId" class="form-label">Building <span class="text-danger">*</span></label>
+                                    <select asp-for="BuildingId" class="form-control" asp-items="ViewBag.BuildingId" id="BuildingId">
+                                        <option value="">-- Select Building --</option>
+                                    </select>
+                                    <span asp-validation-for="BuildingId" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="RoomId" class="form-label">Room <span class="text-danger">*</span></label>
+                                    <select asp-for="RoomId" class="form-control" asp-items="ViewBag.RoomId" id="RoomId">
+                                        <option value="">-- Select Room --</option>
+                                    </select>
+                                    <span asp-validation-for="RoomId" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="InstallationDate" class="form-label">Installation Date</label>
+                                    <input asp-for="InstallationDate" class="form-control" type="date" />
+                                    <span asp-validation-for="InstallationDate" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="ExpectedLifespanMonths" class="form-label">Expected Lifespan (Months) <span class="text-danger">*</span></label>
+                                    <input asp-for="ExpectedLifespanMonths" class="form-control" type="number" min="1" max="600" placeholder="e.g., 60" />
+                                    <small class="form-text text-muted">Expected operational lifespan in months</small>
+                                    <span asp-validation-for="ExpectedLifespanMonths" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="Status" class="form-label">Status <span class="text-danger">*</span></label>
+                                    <select asp-for="Status" class="form-control" asp-items="Html.GetEnumSelectList<FEENALOoFINALE.Models.EquipmentStatus>()">
+                                        <option value="">-- Select Status --</option>
+                                    </select>
+                                    <span asp-validation-for="Status" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label asp-for="AverageWeeklyUsageHours" class="form-label">Average Weekly Usage (Hours)</label>
+                                    <input asp-for="AverageWeeklyUsageHours" class="form-control" type="number" step="0.1" min="0" max="168" placeholder="e.g., 40.5" />
+                                    <small class="form-text text-muted">Average hours per week this equipment is used</small>
+                                    <span asp-validation-for="AverageWeeklyUsageHours" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Notes" class="form-label">Notes</label>
+                            <textarea asp-for="Notes" class="form-control" rows="4" placeholder="Additional notes, maintenance instructions, or special requirements..."></textarea>
+                            <span asp-validation-for="Notes" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Document Management Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text me-2"></i>Document Management
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Upload New Documents (Optional)</label>
+                            <input type="file" class="form-control" name="ManufacturerDocuments" multiple accept=".pdf,.doc,.docx,.txt" />
+                            <small class="form-text text-muted">
+                                Upload manufacturer manuals, spec sheets, or maintenance guides. Supported formats: PDF, DOC, DOCX, TXT.
+                                Maximum 5 files, 10MB each.
+                            </small>
+                        </div>
+
+                        @if (Model.CurrentDocuments != null && Model.CurrentDocuments.Any())
+                        {
+                            <div class="mt-3">
+                                <h6>Current Documents:</h6>
+                                <div class="list-group">
+                                    @foreach (var doc in Model.CurrentDocuments)
+                                    {
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="bi bi-file-earmark-text me-2"></i>
+                                                <span>@doc.FileName</span>
+                                                <small class="text-muted ms-2">(@doc.FileSizeFormatted)</small>
+                                            </div>
+                                            <div>
+                                                <a href="@doc.FilePath" class="btn btn-outline-primary btn-sm" target="_blank">
+                                                    <i class="bi bi-download"></i> Download
+                                                </a>
+                                                <button type="button" class="btn btn-outline-danger btn-sm ms-1" onclick="removeDocument('@doc.DocumentId')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" class="btn btn-primary" id="saveBtn">
+                                    <i class="bi bi-check-circle"></i> Save Changes
+                                </button>
+                                <a href="@Url.Action("Index")" class="btn btn-secondary ms-2">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </a>
+                            </div>
+                            <div>
+                                <a href="@Url.Action("Details", new { id = Model.EquipmentId })" class="btn btn-outline-info">
+                                    <i class="bi bi-eye"></i> View Details
+                                </a>
+                                @if (Model.Status != FEENALOoFINALE.Models.EquipmentStatus.Retired)
+                                {
+                                    <button type="button" class="btn btn-outline-warning ms-1" onclick="confirmRetire()">
+                                        <i class="bi bi-archive"></i> Retire Equipment
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Information Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Equipment Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <strong>Equipment ID:</strong><br>
+                            <span class="text-primary">#@Model.EquipmentId</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Current Status:</strong><br>
+                            <span class="badge bg-@(Model.Status == FEENALOoFINALE.Models.EquipmentStatus.Active ? "success" : 
+                                                Model.Status == FEENALOoFINALE.Models.EquipmentStatus.Inactive ? "warning" : "danger")">
+                                @Model.Status
+                            </span>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <strong>Current Location:</strong><br>
+                            <span class="text-muted">@Model.CurrentLocation</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Model" class="control-label"></label>
-                <input asp-for="Model" class="form-control" />
-                <span asp-validation-for="Model" class="text-danger"></span>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Activity Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="border rounded p-2">
+                                <strong class="text-primary">@Model.TotalMaintenanceTasks</strong><br>
+                                <small class="text-muted">Maintenance Tasks</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2">
+                                <strong class="text-success">@Model.ActiveAlerts</strong><br>
+                                <small class="text-muted">Active Alerts</small>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div class="border rounded p-2">
+                                <strong class="text-info">@Model.WeeklyUsageHours</strong><br>
+                                <small class="text-muted">Hours/Week Usage</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Location" class="control-label"></label>
-                <input asp-for="Location" class="form-control" />
-                <span asp-validation-for="Location" class="text-danger"></span>
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>Quick Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Update location when equipment is moved</li>
+                        <li>Upload manufacturer documents for better maintenance recommendations</li>
+                        <li>Set realistic expected lifespan for accurate planning</li>
+                        <li>Use notes field for special maintenance requirements</li>
+                    </ul>
+                </div>
             </div>
-            *@
-
-            <div class="form-group">
-                <label asp-for="EquipmentTypeId" class="control-label">Equipment Type</label>
-                <select asp-for="EquipmentTypeId" class="form-control" asp-items="ViewBag.EquipmentTypeId"></select>
-                <span asp-validation-for="EquipmentTypeId" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="EquipmentModelName" class="control-label">Equipment Model</label>
-                <input asp-for="EquipmentModelName" class="form-control" placeholder="Enter equipment model (e.g., XP-2000, Model ABC-123)" />
-                <small class="form-text text-muted">Type the exact model name/number. If this model doesn't exist, it will be created automatically.</small>
-                <span asp-validation-for="EquipmentModelName" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="BuildingId" class="control-label"></label>
-                <select asp-for="BuildingId" class="form-control" asp-items="ViewBag.BuildingId"></select>
-                <span asp-validation-for="BuildingId" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="RoomId" class="control-label"></label>
-                <select asp-for="RoomId" class="form-control" asp-items="ViewBag.RoomId">
-                    <option value="">-- Select Room --</option>
-                </select>
-                <span asp-validation-for="RoomId" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="InstallationDate" class="control-label"></label>
-                <input asp-for="InstallationDate" class="form-control" type="date" />
-                <span asp-validation-for="InstallationDate" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="ExpectedLifespanMonths" class="control-label"></label>
-                <input asp-for="ExpectedLifespanMonths" class="form-control" />
-                <span asp-validation-for="ExpectedLifespanMonths" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Status" class="control-label"></label>
-                <select asp-for="Status" class="form-control">
-                    <option value="Operational">Operational</option>
-                    <option value="UnderMaintenance">Under Maintenance</option>
-                    <option value="Faulty">Faulty</option>
-                    <option value="Retired">Retired</option>
-                </select>
-                <span asp-validation-for="Status" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Notes" class="control-label"></label>
-                <textarea asp-for="Notes" class="form-control"></textarea>
-                <span asp-validation-for="Notes" class="text-danger"></span>
-            </div>
-            <div class="form-group mt-3">
-                <input type="submit" value="Save" class="btn btn-primary" />
-            </div>
-        </form>
+        </div>
     </div>
 </div>
 
-<div>
-    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
-</div>
-
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-
-    <script type="text/javascript">
-        $(document).ready(function () {
-            // Function to load Equipment Models based on Equipment Type
-            function loadEquipmentModels(equipmentTypeId, selectedModelId) {
-                if (equipmentTypeId) {
-                    $.ajax({
-                        url: '@Url.Action("GetEquipmentModels", "Equipment")',
-                        type: "GET",
-                        data: { equipmentTypeId: equipmentTypeId },
-                        success: function (data) {
-                            $('#EquipmentModelId').empty();
-                            $('#EquipmentModelId').append('<option value="">-- Select Equipment Model --</option>');
-                            $.each(data, function (index, model) {
-                                $('#EquipmentModelId').append('<option value="' + model.equipmentModelId + '"' + (model.equipmentModelId == selectedModelId ? ' selected' : '') + '>' + model.name + '</option>');
-                            });
-                        },
-                        error: function () {
-                            console.log("Error loading equipment models.");
-                        }
-                    });
-                } else {
-                    $('#EquipmentModelId').empty();
-                    $('#EquipmentModelId').append('<option value="">-- Select Equipment Model --</option>');
+    <script>
+        $(document).ready(function() {
+            // Initialize form validation and interactions
+            initializeFormValidation();
+            initializeDependentDropdowns();
+            
+            // Load rooms based on selected building
+            $('#BuildingId').change(function() {
+                const buildingId = $(this).val();
+                loadRoomsForBuilding(buildingId);
+                
+                // Clear room selection when building changes
+                if (!buildingId) {
+                    $('#RoomId').val('');
                 }
-            }
-
-            // Function to load Rooms based on Building
-            function loadRooms(buildingId, selectedRoomId) {
-                if (buildingId) {
-                    $.ajax({
-                        url: '@Url.Action("GetRooms", "Equipment")',
-                        type: "GET",
-                        data: { buildingId: buildingId },
-                        success: function (data) {
-                            $('#RoomId').empty();
-                            $('#RoomId').append('<option value="">-- Select Room --</option>');
-                            $.each(data, function (index, room) {
-                                $('#RoomId').append('<option value="' + room.roomId + '"' + (room.roomId == selectedRoomId ? ' selected' : '') + '>' + room.name + '</option>');
-                            });
-                        },
-                        error: function () {
-                            console.log("Error loading rooms.");
-                        }
-                    });
-                } else {
-                    $('#RoomId').empty();
-                    $('#RoomId').append('<option value="">-- Select Room --</option>');
-                }
-            }
-
-            // Initial load for Edit page
-            var initialEquipmentTypeId = $('#EquipmentTypeId').val();
-            var initialEquipmentModelId = '@Model.EquipmentModelId';
-            var initialBuildingId = $('#BuildingId').val();
-            var initialRoomId = '@Model.RoomId';
-
-            if (initialEquipmentTypeId) {
-                loadEquipmentModels(initialEquipmentTypeId, initialEquipmentModelId);
-            }
-            if (initialBuildingId) {
-                loadRooms(initialBuildingId, initialRoomId);
-            }
-
-            // Event listener for Equipment Type dropdown change
-            $('#EquipmentTypeId').change(function () {
-                var selectedEquipmentTypeId = $(this).val();
-                loadEquipmentModels(selectedEquipmentTypeId, null); // Pass null for selectedModelId on change
-            });
-
-            // Event listener for Building dropdown change
-            $('#BuildingId').change(function () {
-                var selectedBuildingId = $(this).val();
-                loadRooms(selectedBuildingId, null); // Pass null for selectedRoomId on change
             });
         });
+
+        function initializeFormValidation() {
+            $('#equipmentEditForm').on('submit', function(e) {
+                const isValid = validateForm();
+                if (!isValid) {
+                    e.preventDefault();
+                    showValidationErrors();
+                }
+            });
+        }
+
+        function validateForm() {
+            let isValid = true;
+            const requiredFields = ['EquipmentTypeId', 'EquipmentModelName', 'BuildingId', 'RoomId', 'ExpectedLifespanMonths', 'Status'];
+            
+            requiredFields.forEach(field => {
+                const element = $(`#${field}`);
+                if (!element.val() || element.val().trim() === '') {
+                    element.addClass('is-invalid');
+                    isValid = false;
+                } else {
+                    element.removeClass('is-invalid');
+                }
+            });
+            
+            return isValid;
+        }
+
+        function showValidationErrors() {
+            const errorAlert = $(`
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Please fill in all required fields before saving.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `);
+            $('.container-fluid').prepend(errorAlert);
+            $('html, body').animate({ scrollTop: 0 }, 500);
+        }
+
+        function initializeDependentDropdowns() {
+            // Load initial rooms if building is selected
+            const buildingId = $('#BuildingId').val();
+            if (buildingId) {
+                loadRoomsForBuilding(buildingId);
+            } else {
+                // Clear room dropdown if no building is selected
+                $('#RoomId').html('<option value="">-- Select Room --</option>');
+            }
+        }
+
+        function loadRoomsForBuilding(buildingId) {
+            const roomSelect = $('#RoomId');
+            const currentRoomId = '@Model.RoomId';
+            
+            roomSelect.html('<option value="">Loading...</option>');
+            
+            if (!buildingId) {
+                roomSelect.html('<option value="">-- Select Room --</option>');
+                return;
+            }
+
+            $.ajax({
+                url: '@Url.Action("GetRoomsByBuilding", "Equipment")',
+                data: { buildingId: buildingId },
+                success: function(rooms) {
+                    roomSelect.html('<option value="">-- Select Room --</option>');
+                    let currentRoomFound = false;
+                    
+                    rooms.forEach(room => {
+                        const selected = room.value == currentRoomId ? 'selected' : '';
+                        if (room.value == currentRoomId) {
+                            currentRoomFound = true;
+                        }
+                        roomSelect.append(`<option value="${room.value}" ${selected}>${room.text}</option>`);
+                    });
+                    
+                    // If current room is not in the new building, clear the selection
+                    if (!currentRoomFound && currentRoomId) {
+                        roomSelect.val('');
+                    }
+                },
+                error: function() {
+                    roomSelect.html('<option value="">-- Error loading rooms --</option>');
+                }
+            });
+        }
+
+        function removeDocument(documentId) {
+            if (confirm('Are you sure you want to remove this document?')) {
+                $.ajax({
+                    url: '@Url.Action("RemoveDocument", "Equipment")',
+                    type: 'POST',
+                    data: { documentId: documentId },
+                    success: function(result) {
+                        if (result.success) {
+                            location.reload();
+                        } else {
+                            alert('Error removing document: ' + result.message);
+                        }
+                    },
+                    error: function() {
+                        alert('Error removing document. Please try again.');
+                    }
+                });
+            }
+        }
+
+        function confirmRetire() {
+            if (confirm('Are you sure you want to retire this equipment? This will change its status to Retired and it will no longer be available for use.')) {
+                $('#Status').val('@((int)FEENALOoFINALE.Models.EquipmentStatus.Retired)');
+                $('#equipmentEditForm').submit();
+            }
+        }
+    </script>
+
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <!-- Document Upload and Building/Room Management Scripts -->
+    <script>
+        // Document management functions
+        function uploadDocument() {
+            const fileInput = $('input[name="ManufacturerDocuments"]')[0];
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('Please select files to upload.');
+                return;
+            }
+            
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('documentFile', files[i]);
+                formData.append('equipmentId', '@Model.EquipmentId');
+                formData.append('documentType', 'Manual Upload');
+            }
+            
+            $.ajax({
+                url: '@Url.Action("UploadDocument", "Equipment")',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(result) {
+                    if (result.success) {
+                        location.reload();
+                    } else {
+                        alert('Error uploading document: ' + result.message);
+                    }
+                },
+                error: function() {
+                    alert('Error uploading document. Please try again.');
+                }
+            });
+        }
     </script>
 }

@@ -40,10 +40,15 @@ namespace FEENALOoFINALE.Models
         public EquipmentStatus Status { get; set; }
         public string? Notes { get; set; }
 
+        // New property for average weekly usage hours
+        public double? AverageWeeklyUsageHours { get; set; }
+
         // Navigation properties
         public ICollection<MaintenanceLog>? MaintenanceLogs { get; set; }
         public ICollection<FailurePrediction>? FailurePredictions { get; set; }
         public ICollection<Alert>? Alerts { get; set; }
+        public ICollection<ManufacturerDocument>? ManufacturerDocuments { get; set; }
+        public ICollection<MaintenanceRecommendation>? MaintenanceRecommendations { get; set; }
     }
 
     public enum EquipmentStatus

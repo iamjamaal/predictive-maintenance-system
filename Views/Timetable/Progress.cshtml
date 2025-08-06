@@ -1,0 +1,418 @@
+@model FEENALOoFINALE.Models.ViewModels.SemesterProgressDashboardViewModel
+@using FEENALOoFINALE.Models.ViewModels
+@{
+    ViewData["Title"] = Model.PageTitle;
+}
+
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index", "Dashboard")">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Timetable Management</a></li>
+                    <li class="breadcrumb-item active">Semester Progress</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">@Model.PageTitle</h1>
+                    <p class="text-muted mb-0">
+                        @if (Model.CurrentSemester != null)
+                        {
+                            <span>@Model.CurrentSemester.SemesterName • @Model.CurrentSemester.StartDate.ToString("MMM dd, yyyy") - @Model.CurrentSemester.EndDate.ToString("MMM dd, yyyy")</span>
+                        }
+                    </p>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dashboard
+                        </a>
+                        @if (Model.CurrentSemester != null)
+                        {
+                            <a href="@Url.Action("Edit", new { id = Model.CurrentSemester.SemesterId })" class="btn btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Edit Semester
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.CurrentSemester == null)
+    {
+        <!-- No Active Semester -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> No Active Semester
+                        </h5>
+                    </div>
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-calendar-x display-1 text-muted mb-3"></i>
+                        <h4>No Active Semester Found</h4>
+                        <p class="text-muted">There is no active semester to display progress for.</p>
+                        <a href="@Url.Action("Upload")" class="btn btn-warning">
+                            <i class="bi bi-upload"></i> Upload New Semester
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Semester Progress Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-@(Model.ProgressInfo.Status == SemesterStatus.Active ? "success" : 
+                                        Model.ProgressInfo.Status == SemesterStatus.Upcoming ? "info" : 
+                                        Model.ProgressInfo.Status == SemesterStatus.Completed ? "secondary" : "warning")">
+                    <div class="card-header bg-@(Model.ProgressInfo.Status == SemesterStatus.Active ? "success" : 
+                                                Model.ProgressInfo.Status == SemesterStatus.Upcoming ? "info" : 
+                                                Model.ProgressInfo.Status == SemesterStatus.Completed ? "secondary" : "warning") text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-graph-up"></i> Semester Progress Overview
+                            </h5>
+                            <span class="badge bg-light text-dark fs-6">@Model.ProgressInfo.Status</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <!-- Progress Bar -->
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">Overall Progress</h6>
+                                        <span class="badge bg-@(Model.ProgressInfo.RequiresNewSemester ? "warning" : "success") fs-6">
+                                            @Model.ProgressInfo.ProgressPercentage.ToString("F1")%
+                                        </span>
+                                    </div>
+                                    <div class="progress" style="height: 25px;">
+                                        <div class="progress-bar bg-@(Model.ProgressInfo.RequiresNewSemester ? "warning" : "success")" 
+                                             role="progressbar" 
+                                             style="width: @Model.ProgressInfo.ProgressPercentage%"
+                                             aria-valuenow="@Model.ProgressInfo.ProgressPercentage" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            <span class="fw-bold">@Model.ProgressInfo.ProgressPercentage.ToString("F1")% Complete</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Timeline -->
+                                <div class="mb-4">
+                                    <h6>Semester Timeline</h6>
+                                    <div class="timeline-container">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="text-center">
+                                                <div class="timeline-point bg-success"></div>
+                                                <small class="d-block mt-1">Start</small>
+                                                <small class="text-muted">@Model.CurrentSemester.StartDate.ToString("MMM dd")</small>
+                                            </div>
+                                            <div class="timeline-line flex-grow-1 mx-3" style="height: 2px; background: #dee2e6;">
+                                                <div class="timeline-progress bg-success" style="width: @Model.ProgressInfo.ProgressPercentage%; height: 100%;"></div>
+                                            </div>
+                                            <div class="text-center">
+                                                <div class="timeline-point bg-@(Model.ProgressInfo.RequiresNewSemester ? "warning" : "secondary")"></div>
+                                                <small class="d-block mt-1">End</small>
+                                                <small class="text-muted">@Model.CurrentSemester.EndDate.ToString("MMM dd")</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <!-- Key Metrics -->
+                                <div class="row text-center">
+                                    <div class="col-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <i class="bi bi-calendar-week text-primary display-6"></i>
+                                            <h4 class="mt-2">@Model.ProgressInfo.CurrentWeek</h4>
+                                            <p class="text-muted mb-0">Current Week</p>
+                                            <small class="text-muted">of @Model.CurrentSemester.NumberOfWeeks</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <i class="bi bi-clock text-info display-6"></i>
+                                            <h4 class="mt-2">@Model.ProgressInfo.DaysRemaining</h4>
+                                            <p class="text-muted mb-0">Days Left</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <i class="bi bi-graph-up text-success display-6"></i>
+                                            <h4 class="mt-2">@Model.ProgressInfo.WeeksElapsed</h4>
+                                            <p class="text-muted mb-0">Weeks Elapsed</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <i class="bi bi-calendar-x text-warning display-6"></i>
+                                            <h4 class="mt-2">@Model.ProgressInfo.WeeksRemaining</h4>
+                                            <p class="text-muted mb-0">Weeks Left</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (Model.ProgressInfo.RequiresNewSemester)
+                        {
+                            <div class="alert alert-warning mt-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-exclamation-triangle me-3 fs-4"></i>
+                                    <div>
+                                        <h6 class="mb-1">Semester Completion Notice</h6>
+                                        <p class="mb-0">
+                                            @if (Model.ProgressInfo.Status == SemesterStatus.Completed)
+                                            {
+                                                <span>This semester has been completed. Please upload the next semester's timetable to continue equipment usage tracking.</span>
+                                            }
+                                            else
+                                            {
+                                                <span>This semester is nearly complete (@Model.ProgressInfo.ProgressPercentage.ToString("F1")%). Consider preparing and uploading the next semester's timetable soon.</span>
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <a href="@Url.Action("Upload")" class="btn btn-warning">
+                                        <i class="bi bi-upload"></i> Upload Next Semester
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">@Model.Statistics.TotalUsageHours.ToString("F0")</h4>
+                                <p class="mb-0">Total Hours</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-clock-history display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0">@Model.Statistics.HighUsageEquipmentCount</h4>
+                                <p class="mb-0">High Usage Items</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-exclamation-triangle display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment Usage Summary -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-list-check"></i> Equipment Usage Summary
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.EquipmentUsage.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Equipment</th>
+                                            <th>Location</th>
+                                            <th>Total Semester Hours</th>
+                                            <th>Usage Level</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var usage in Model.EquipmentUsage.OrderByDescending(u => u.TotalSemesterHours))
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <strong>@usage.EquipmentName</strong>
+                                                    <br><small class="text-muted">@usage.EquipmentType</small>
+                                                </td>
+                                                <td>
+                                                    @usage.Location
+                                                </td>
+                                                <td>
+                                                    <strong>@usage.TotalSemesterHours.ToString("F0")h</strong>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary">N/A</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-inbox display-4 text-muted mb-3"></i>
+                                <h5>No Equipment Usage Data</h5>
+                                <p class="text-muted">No equipment usage data has been processed for this semester yet.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Progress Chart -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-bar-chart"></i> Weekly Progress
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.WeeklyProgress.Any())
+                        {
+                            <div class="row">
+                                @foreach (var week in Model.WeeklyProgress)
+                                {
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body text-center p-2">
+                                                <h6 class="card-title mb-1">Week @week.WeekNumber</h6>
+                                                <!-- Add more here if you have other properties -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-calendar-x display-4 text-muted mb-3"></i>
+                                <h5>No Weekly Progress Data</h5>
+                                <p class="text-muted">Weekly progress data will be available once the semester begins.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Recommendations -->
+        @if (Model.MaintenanceRecommendations.Any())
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-tools"></i> Maintenance Recommendations
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                @foreach (var recommendation in Model.MaintenanceRecommendations.Take(6))
+                                {
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card border-@(recommendation.Priority == "High" ? "danger" : "warning")">
+                                            <div class="card-header bg-@(recommendation.Priority == "High" ? "danger" : "warning") text-white">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <h6 class="card-title mb-0">@recommendation.EquipmentName</h6>
+                                                    <span class="badge bg-light text-dark">@recommendation.Priority</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="card-text"><strong>@recommendation.RecommendationType</strong></p>
+                                                <ul class="list-unstyled mb-2">
+                                                    @foreach (var rec in recommendation.Recommendations.Take(2))
+                                                    {
+                                                        <li><i class="bi bi-arrow-right text-muted"></i> @rec</li>
+                                                    }
+                                                </ul>
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <small class="text-muted">Urgency: @recommendation.Urgency</small>
+                                                    <small class="text-muted">Est. Cost: $@recommendation.EstimatedCost</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .timeline-container {
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .timeline-point {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin: 0 auto;
+    }
+    
+    .timeline-line {
+        position: relative;
+    }
+    
+    .timeline-progress {
+        transition: width 0.3s ease;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Auto-refresh progress data every 5 minutes
+            setInterval(function() {
+                location.reload();
+            }, 300000); // 5 minutes
+            
+            // Add hover effects to timeline
+            $('.timeline-point').hover(
+                function() {
+                    $(this).addClass('shadow');
+                },
+                function() {
+                    $(this).removeClass('shadow');
+                }
+            );
+        });
+    </script>
+}

@@ -821,17 +821,54 @@
                                     <span>Predictive AI</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Asset" asp-action="Index">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="assetsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-boxes"></i>
                                     <span>Assets</span>
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="assetsDropdown">
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" href="@Url.Action("Index", "Asset")">
+                                            <i class="bi bi-list-ul me-2"></i> All Assets
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" href="@Url.Action("Index", "Equipment")">
+                                            <i class="bi bi-gear-wide-connected me-2"></i> Equipment
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" href="@Url.Action("Index", "Inventory")">
+                                            <i class="bi bi-box me-2"></i> Inventory
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="MaintenanceLog" asp-action="Index">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="maintenanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-clipboard-data-fill"></i>
-                                    <span>Logs</span>
+                                    <span>Maintenance</span>
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="maintenanceDropdown">
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" asp-controller="MaintenanceLog" asp-action="ActiveTasks">
+                                            <i class="bi bi-clipboard-check me-2 text-primary"></i> Active Tasks
+                                            <span class="badge bg-warning ms-auto">!</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" asp-controller="MaintenanceLog" asp-action="Index">
+                                            <i class="bi bi-clipboard-data me-2"></i> All Logs
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center" asp-controller="MaintenanceLog" asp-action="Create">
+                                            <i class="bi bi-plus-circle me-2"></i> Create New Log
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                             <li class="nav-item has-notification">
                                 <a class="nav-link" asp-controller="Alert" asp-action="Index">

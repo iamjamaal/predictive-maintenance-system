@@ -9,33 +9,36 @@
 <form asp-action="Create" method="post">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     
-    <div class="form-group">
-        <label asp-for="Name" class="control-label"></label>
-        <input asp-for="Name" class="form-control" />
-        <span asp-validation-for="Name" class="text-danger"></span>
-    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-    <div class="form-group">
-        <label asp-for="Description" class="control-label"></label>
-        <textarea asp-for="Description" class="form-control"></textarea>
-        <span asp-validation-for="Description" class="text-danger"></span>
-    </div>
+            <div class="form-group">
+                <label asp-for="EquipmentTypeId" class="control-label">Equipment Type</label>
+                <select asp-for="EquipmentTypeId" class="form-control select-chevron" asp-items="ViewBag.EquipmentTypeId">
+                    <option value="">-- Select Equipment Type --</option>
+                </select>
+                <span asp-validation-for="EquipmentTypeId" class="text-danger"></span>
+            </div>
 
-    <div class="form-group">
-        <label asp-for="Category" class="control-label"></label>
-        <select asp-for="Category" asp-items="ViewBag.Categories" class="form-control"></select>
-        <span asp-validation-for="Category" class="text-danger"></span>
-    </div>
+            <div class="form-group">
+                <label asp-for="EquipmentModelName" class="control-label">Equipment Model</label>
+                <input asp-for="EquipmentModelName" class="form-control" placeholder="Enter equipment model (e.g., XP-2000, Model ABC-123)" />
+                <small class="form-text text-muted">Type the exact model name/number. If this model doesn't exist, it will be created automatically.</small>
+                <span asp-validation-for="EquipmentModelName" class="text-danger"></span>
+            </div>
 
-    <div class="form-group">
-        <label asp-for="InitialStock" class="control-label">Amount to Add</label>
-        <input asp-for="InitialStock" class="form-control" type="number" />
-        <span asp-validation-for="InitialStock" class="text-danger"></span>
-    </div>
+            <div class="form-group">
+                <label asp-for="InitialStock" class="control-label">Amount to Add</label>
+                <input asp-for="InitialStock" class="form-control" type="number" />
+                <span asp-validation-for="InitialStock" class="text-danger"></span>
+            </div>
 
-    <div class="form-group mt-3">
-        <input type="submit" value="Create" class="btn btn-primary" />
-        <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            <div class="form-group mt-3">
+                <input type="submit" value="Create" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </div>
     </div>
 </form>
 

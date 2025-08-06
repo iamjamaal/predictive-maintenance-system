@@ -15,5 +15,9 @@ namespace FEENALOoFINALE.Models
         // This is the amount to add at creation time.
         [Range(0, int.MaxValue, ErrorMessage = "Initial stock must be non-negative.")]
         public int InitialStock { get; set; }
+
+        // Added to fix missing properties for Create.cshtml
+        public int? EquipmentTypeId { get; set; }
+        public string EquipmentModelName { get; set; }
     }
 }

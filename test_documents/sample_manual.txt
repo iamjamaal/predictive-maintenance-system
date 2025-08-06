@@ -1,0 +1,26 @@
+EQUIPMENT MAINTENANCE MANUAL
+Model: XYZ-500 Industrial Pump
+
+ROUTINE MAINTENANCE SCHEDULE:
+- Weekly inspection of seals and gaskets
+- Monthly lubrication of bearings
+- Quarterly replacement of filters
+- Semi-annual alignment check
+- Annual complete overhaul
+
+PREVENTIVE MAINTENANCE:
+1. Check oil levels daily
+2. Monitor vibration levels weekly
+3. Inspect for leaks monthly
+4. Replace worn parts as needed
+5. Schedule professional inspection every 6 months
+
+TROUBLESHOOTING:
+- Unusual noise: Check alignment and lubrication
+- Reduced flow: Clean or replace filters
+- Overheating: Check coolant levels and ventilation
+
+SAFETY NOTES:
+- Always disconnect power before maintenance
+- Use proper personal protective equipment
+- Follow lockout/tagout procedures

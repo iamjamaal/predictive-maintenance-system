@@ -27,6 +27,9 @@ namespace FEENALOoFINALE.Services
         {
             _logger.LogInformation("Equipment Monitoring Service started");
 
+            // Wait 2 minutes before first monitoring to reduce startup load
+            await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
