@@ -5,6 +5,9 @@
 # Visual Studio Code files
 .vscode/
 
+# Visual Studio workspace cache
+.vs/
+
 # Rider files
 .idea/
 
