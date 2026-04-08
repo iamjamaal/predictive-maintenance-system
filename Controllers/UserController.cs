@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using FEENALOoFINALE.Services;
 using System.Security.Cryptography;
 using System.Text;
+using System.Net;
 
 namespace FEENALOoFINALE.Controllers
 {
@@ -19,6 +20,7 @@ namespace FEENALOoFINALE.Controllers
         private readonly IEmailService _emailService;
         private readonly ILogger<UserController> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IWebHostEnvironment _environment;
 
         public UserController(
             ApplicationDbContext context, 
@@ -26,7 +28,8 @@ namespace FEENALOoFINALE.Controllers
             UserManager<User> userManager,
             IEmailService emailService,
             ILogger<UserController> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _signInManager = signInManager;
@@ -34,6 +37,7 @@ namespace FEENALOoFINALE.Controllers
             _emailService = emailService;
             _logger = logger;
             _configuration = configuration;
+            _environment = environment;
         }
 
         // GET: User (Protected)
@@ -828,13 +832,24 @@ namespace FEENALOoFINALE.Controllers
             return Json(new { exists = false, isValid = true, message = "Username is available" });
         }
 
+        private bool IsLocalDevelopmentRequest()
+        {
+            if (!_environment.IsDevelopment())
+            {
+                return false;
+            }
+
+            var remoteIp = HttpContext.Connection.RemoteIpAddress;
+            return remoteIp == null || IPAddress.IsLoopback(remoteIp);
+        }
+
         // Development only: Bypass email verification
+#if DEBUG
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> BypassEmailVerification(string email)
         {
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            if (!isDevelopment)
+            if (!IsLocalDevelopmentRequest())
             {
                 return NotFound();
             }
@@ -863,11 +878,13 @@ namespace FEENALOoFINALE.Controllers
 
             return RedirectToAction("Login");
         }
+#endif
 
         // Temporary debug endpoint to check user status (Development only)
+#if DEBUG
         public async Task<IActionResult> DebugUsers()
         {
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development")
+            if (!IsLocalDevelopmentRequest())
             {
                 return NotFound();
             }
@@ -887,14 +904,16 @@ namespace FEENALOoFINALE.Controllers
 
             return Json(userInfo);
         }
+#endif
 
         // Development only - direct login bypass (after password verification)
+#if DEBUG
         [HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DevLogin(string username, string password)
         {
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development")
+            if (!IsLocalDevelopmentRequest())
             {
                 return NotFound();
             }
@@ -959,6 +978,7 @@ namespace FEENALOoFINALE.Controllers
 
             return RedirectToAction("Login");
         }
+#endif
 
         // Bulk action for users
         [HttpPost]

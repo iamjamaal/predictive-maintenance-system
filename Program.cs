@@ -1,10 +1,10 @@
 using FEENALOoFINALE.Data;
-using FEENALOoFINALE.Models; // Add this line
-using FEENALOoFINALE.Services; // Add this line for background services
-using FEENALOoFINALE.Hubs; // Add SignalR Hub
+using FEENALOoFINALE.Models;
+using FEENALOoFINALE.Services;
+using FEENALOoFINALE.Hubs;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
@@ -21,7 +21,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Around line 14, where builder.Services.AddDefaultIdentity<User> is called
 builder.Services.AddDefaultIdentity<User>(options => 
 {
-    options.SignIn.RequireConfirmedAccount = false; // Disable for development/testing
+    options.SignIn.RequireConfirmedAccount = !builder.Environment.IsDevelopment();
     options.User.RequireUniqueEmail = true;
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
@@ -31,6 +31,26 @@ builder.Services.AddDefaultIdentity<User>(options =>
 })
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (!string.IsNullOrWhiteSpace(jwtKey))
+{
+    builder.Services.AddAuthentication()
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ValidateIssuer = !string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Issuer"]),
+                ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                ValidateAudience = !string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Audience"]),
+                ValidAudience = builder.Configuration["Jwt:Audience"],
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(2)
+            };
+        });
+}
 
 // Register Email Service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
@@ -70,8 +90,6 @@ builder.Services.AddSignalR();
 // Register Enhanced Maintenance Scheduling Background Service (commented out until implementation is ready)
 // builder.Services.AddHostedService<MaintenanceSchedulingBackgroundService>();
 
-// Add Swagger/OpenAPI - TODO: Fix Swagger configuration
-/*
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -115,7 +133,6 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-*/
 
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
@@ -129,15 +146,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
-    // TODO: Re-enable Swagger when dependencies are fixed
-    /*
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Predictive Maintenance API V1");
         c.RoutePrefix = "api-docs";
     });
-    */
 }
 else
 {
@@ -146,7 +160,7 @@ else
     app.UseHsts();
 }
 
-// app.UseHttpsRedirection(); // Comment out or remove this line
+app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseAuthentication();

@@ -1,5 +1,6 @@
 using FEENALOoFINALE.Data;
 using FEENALOoFINALE.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ namespace FEENALOoFINALE.Controllers.Api
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class AuthApiController : ControllerBase
     {
         private readonly UserManager<User> _userManager;

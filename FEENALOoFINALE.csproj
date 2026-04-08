@@ -8,16 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Controllers\Api\MaintenanceLogApiController.cs" />
-    <Compile Remove="Controllers\Api\InventoryApiController.cs" />
-    <Compile Remove="Controllers\Api\EquipmentApiController.cs" />
-    <Compile Remove="Controllers\Api\AuthApiController.cs" />
-    <Compile Remove="Controllers\Api\AlertApiController.cs" />
-    <Compile Remove="Controllers\Api\AIIntelligenceController.cs" />
-    <Compile Remove="DeleteUsers.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="EPPlus" Version="8.0.7" />
     <PackageReference Include="iTextSharp.LGPLv2.Core" Version="3.7.4" />
     <PackageReference Include="MailKit" Version="4.13.0" />
