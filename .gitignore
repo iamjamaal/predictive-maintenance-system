@@ -24,3 +24,16 @@ artifacts/
 
 # Rider
 *.ReSharper.user
+
+# Local backup and data artifacts
+*.bak
+*.backup
+*.tmp
+*.db
+*.sqlite
+*.sqlite3
+
+# SQL Server local backups and data exports
+*.bacpac
+*.mdf
+*.ldf
